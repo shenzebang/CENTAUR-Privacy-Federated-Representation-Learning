@@ -3,13 +3,13 @@ args=(DP-FedRep.py
      --model cnn
     #  dataset configuration
      --dataset cifar10\
-     --shard_per_user 4\
+     --shard_per_user 2\
      --num_classes 10\
     #  experiment configuration
 #      --data_augmentation
      --epochs 100\
      --seed 1\
-     --num_users 100\
+     --num_users 20\
     #  DP configuration
 #      --disable-dp\
      --epsilon 1\
@@ -20,15 +20,14 @@ args=(DP-FedRep.py
      --gpu 3
 #      --use_ray
     #  test configuration
-     --test_freq 10
     #  train configuration
      --lr-rep 1e-1
      --lr-head 1e-2
-     --local_ep 10
+     --local_ep 15
      --local_rep_ep 1
      --batch_size 4000
      --MAX_PHYSICAL_BATCH_SIZE 100
-#      --verbose
+     --verbose
      )
 
 python "${args[@]}"

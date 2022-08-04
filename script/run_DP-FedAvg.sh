@@ -1,6 +1,4 @@
-args=(main_fedrep.py
-    # algorithm configuration
-     --alg fedavg\
+args=(DP-FedAvg-ft.py
     #  model configuration
      --model cnn
     #  dataset configuration
@@ -8,23 +6,28 @@ args=(main_fedrep.py
      --shard_per_user 2\
      --num_classes 10\
     #  experiment configuration
-     --data_augmentation
-     --arc fl\
+#      --data_augmentation
      --epochs 100\
      --seed 1\
      --num_users 100\
     #  DP configuration
+     --disable-dp\
      --epsilon 1\
      --delta 1e-5\
      --dp_clip 1\
     #  save/load configuration
     #  backend configuration
-     --gpu 2\
+     --gpu 3
+#      --use_ray
     #  test configuration
-     --test_freq 10
     #  train configuration
-     --lr 1e-2
+     --lr-rep 1e-1
+     --lr-head 1e-2
+     --ft-ep 15
      --local_ep 1
+     --batch_size 4000
+     --MAX_PHYSICAL_BATCH_SIZE 100
+     --verbose
      )
 
 python "${args[@]}"

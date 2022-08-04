@@ -7,6 +7,11 @@
 
 # This program implements FedRep under the specification --alg fedrep, as well as Fed-Per (--alg fedper), LG-FedAvg (--alg lg),
 # FedAvg (--alg fedavg) and FedProx (--alg prox)
+
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
+
 import copy
 import warnings
 from collections import OrderedDict
@@ -123,7 +128,7 @@ def aggregate_model(args, global_model, clients: List[Client]):
 def broadcast(args, global_model, clients: List[Client]):
     return 0 # no need to broadcase the global model to the clients in the local training setting
 
-@ray.remote(num_gpus=.13)
+@ray.remote(num_gpus=.5)
 def ray_dispatch(client: Client):
     result = client.step()
     print(f"Client {client.cid} finished!")

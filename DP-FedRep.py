@@ -1,19 +1,14 @@
-import ray
-import torch
-from torch.utils.data import DataLoader
-from torch import optim
-import torch.nn as nn
-from typing import List
 import copy
-
-from opacus import PrivacyEngine
-from opacus.utils.batch_memory_manager import BatchMemoryManager
-
-from options import args_parser
-from common_utils import *
-from Models.models import get_model
-from data_utils import prepare_dataloaders
 import warnings
+
+import ray
+from opacus.utils.batch_memory_manager import BatchMemoryManager
+from torch import optim
+
+from Models.models import get_model
+from common_utils import *
+from data_utils import prepare_dataloaders
+from options import args_parser
 
 warnings.filterwarnings("ignore")
 
@@ -173,7 +168,7 @@ class Client:
             "train acc":    train_acc,
             "test loss":    test_loss,
             "test acc":     test_acc,
-            "sd":  self.model.state_dict(),
+            "sd":           self.model.state_dict(),
             "PE":           PE
         }
 
@@ -182,10 +177,6 @@ class Client:
                 f"Client {self.idx} finished."
             )
         return result
-
-@ray.remote(num_gpus=.3, max_calls=1)
-def ray_dispatch(client, PE):
-    return client.step(PE)
 
 class Server:
     def __init__(self, args, model: nn.Module, representation_keys: List[str], clients: List[Client]):
@@ -225,11 +216,7 @@ class Server:
             Server orchestrates the clients to perform local updates.
             The current implementation did not use ray backend.
         '''
-        if self.args.use_ray:
-            job_id = [ray_dispatch.remote(client, PE) for client, PE in zip(self.clients, self.PEs)]
-            results = ray.get(job_id)
-        else:
-            results = [client.step(PE) for client, PE in zip(self.clients, self.PEs)]
+        results = [client.step(PE) for client, PE in zip(self.clients, self.PEs)]
 
         result = {
             "train loss":   torch.mean(torch.stack([result["train loss"] for result in results])),
@@ -299,7 +286,7 @@ def main(args):
                 f"No seed is manually set."
             )
 
-    device = torch.device('cuda' if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
+    device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
 
     # Init Dataloaders
     train_dataloaders, test_dataloaders, _ = prepare_dataloaders(args)
@@ -340,14 +327,6 @@ def main(args):
 
 if __name__ == '__main__':
     args = args_parser()
-
-    if args.use_ray:
-        ray.init()
-
-        print(
-            ray.nodes()
-        )
-
     '''
     ####################################################################################################################
         If this is the main file, call <main> with "args" as it is.

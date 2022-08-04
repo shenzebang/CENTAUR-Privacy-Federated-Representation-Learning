@@ -21,7 +21,6 @@ def args_parser():
 
     
     # algorithm-specific hyperparameters
-    parser.add_argument('--local_rep_ep', type=int, default=1, help="the number of local epochs for the representation for FedRep")
     parser.add_argument('--lr_g', type=float, default=0.1, help="global learning rate for SCAFFOLD")
     parser.add_argument('--mu', type=float, default='0.1', help='FedProx parameter mu')
     parser.add_argument('--gmf', type=float, default='0', help='FedProx parameter gmf')
@@ -129,7 +128,12 @@ def args_parser():
     ### DP-FedRep
     parser.add_argument('--lr-rep', type=float, default=0.1, help="learning rate")
     parser.add_argument('--lr-head', type=float, default=0.01, help="learning rate")
+    parser.add_argument('--local_rep_ep', type=int, default=1,
+                        help="the number of local epochs for the representation for FedRep")
 
+    ### DP-FedAvg-ft
+    parser.add_argument('--ft-ep', type=int, default=1,
+                        help="the number of local epochs for fine tuning the head")
 
     args = parser.parse_args()
     return args

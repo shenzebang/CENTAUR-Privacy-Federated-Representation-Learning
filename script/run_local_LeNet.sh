@@ -7,8 +7,8 @@ args=(baseline_local.py
     #  experiment configuration
     --data_augmentation
     --epochs 1
-    --num_users 100
-    --shard_per_user 4
+    --num_users 20
+    --shard_per_user 5
     --seed 1
     --n_runs 1
     #  DP configuration
@@ -24,7 +24,7 @@ args=(baseline_local.py
 #     --verbose
     --lr 1e-3
     --batch_size 50
-    --local_epochs 300
+    --local_epochs 500
     --momentum 0.9
     )
 
