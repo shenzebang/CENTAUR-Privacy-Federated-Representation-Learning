@@ -119,7 +119,8 @@ def args_parser():
     parser.add_argument('--num_layers_keep', type=int, default=1, help='number layers to keep')
 
     # Backend configuration
-    parser.add_argument('--gpu', type=int, default=0, help="GPU ID, -1 for CPU")
+    parser.add_argument('--gpu', type=str, default='0-1-2-3', help="GPU ID, -1 for CPU")
+    parser.add_argument('--ray_gpu_fraction', type=float, default=.3)
     parser.add_argument('--MAX_PHYSICAL_BATCH_SIZE', type=int, default=400, help="used in batch_memory_manager")
     parser.add_argument('--use_ray', action='store_true')
 
@@ -128,8 +129,8 @@ def args_parser():
     ### DP-FedRep
     parser.add_argument('--lr-rep', type=float, default=0.1, help="learning rate")
     parser.add_argument('--lr-head', type=float, default=0.01, help="learning rate")
-    parser.add_argument('--local_rep_ep', type=int, default=1,
-                        help="the number of local epochs for the representation for FedRep")
+    parser.add_argument('--local_head_ep', type=int, default=1,
+                        help="the number of local epochs for the head for FedRep")
 
     ### DP-FedAvg-ft
     parser.add_argument('--ft-ep', type=int, default=1,

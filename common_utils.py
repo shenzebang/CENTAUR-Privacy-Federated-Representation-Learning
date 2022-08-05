@@ -9,6 +9,7 @@ from torch.optim import Optimizer
 from typing import List
 from collections import OrderedDict
 import itertools
+import os
 
 def accuracy(preds: np.ndarray, labels: np.ndarray):
     return (preds == labels).mean()
@@ -55,7 +56,7 @@ def get_noise_multiplier_from_args(args, dataloader):
         target_epsilon=args.epsilon,
         target_delta=args.delta,
         sample_rate=sample_rate,
-        epochs=args.epochs * args.local_rep_ep
+        epochs=args.epochs * args.local_ep
     )
     return noise_multiplier
 
@@ -110,3 +111,30 @@ def fix_DP_model_keys(args, model: nn.Module):
         sd = OrderedDict([(key[8:], sd[key]) for key in sd.keys()])
 
     return sd
+
+def set_cuda(args):
+    '''
+        Use "args.gpu" to determine the gpu setting.
+    '''
+    gpus = args.gpu.split('-')
+    negative_gpu = False
+    for gpu in gpus:
+        if int(gpu) < 0:
+            negative_gpu = True
+
+    if negative_gpu:
+        print(
+            f"Using CPU only"
+        )
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        args.n_gpus = 0
+        return 0
+
+    n_gpus = len(gpus)
+    gpus = ",".join(gpus)
+    print(
+        f"Using GPUs {gpus}"
+    )
+    os.environ["CUDA_VISIBLE_DEVICES"] = gpus
+    args.n_gpus = n_gpus
+    return n_gpus

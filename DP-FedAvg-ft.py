@@ -10,6 +10,8 @@ from common_utils import *
 from data_utils import prepare_dataloaders
 from options import args_parser
 
+from ray_remote_worker import *
+
 warnings.filterwarnings("ignore")
 
 class Client:
@@ -42,7 +44,7 @@ class Client:
 
         self.model.train()
         optimizer = optim.SGD(self.model.parameters(),
-                              lr=args.lr_rep,
+                              lr=args.lr,
                               momentum=args.momentum,
                               weight_decay=args.weight_decay
                               )
@@ -96,7 +98,7 @@ class Client:
 
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
-    def _train_head(self, model_head: nn.Module):
+    def _fine_tune_head(self, model_head: nn.Module):
         '''
             Optimize over the local head of a copy of the model.
             The result is not incorporated into "self.model"
@@ -153,11 +155,13 @@ class Client:
     def step(self, PE: PrivacyEngine):
         # 1. Fine tune the head of a copy
         model_head = copy.deepcopy(self.model)
-        _, _ = self._train_head(model_head)
+        _, _ = self._fine_tune_head(model_head)
 
         # 2. Calculate the performance of the representation from the previous iteration
         #    Only the fine tuned model is tested
         test_loss, test_acc = self.test(model_head)
+
+        del model_head
 
         # 3. Update the representation
         train_loss, train_acc = self._train(PE)
@@ -179,7 +183,7 @@ class Client:
         return result
 
 class Server:
-    def __init__(self, args, model: nn.Module, representation_keys: List[str], clients: List[Client]):
+    def __init__(self, args, model: nn.Module, representation_keys: List[str], clients: List[Client], remote_workers):
         self.args = args
         self.model = model
         self.representation_keys = representation_keys
@@ -187,6 +191,8 @@ class Server:
         self.PEs = [None] * args.num_users
         if not args.disable_dp:
             self.PEs = [PrivacyEngine(secure_mode=args.secure_rng) for _ in range(args.num_users)]
+
+        self.remote_workers = remote_workers
 
 
     def broadcast(self):
@@ -207,7 +213,8 @@ class Server:
             Server orchestrates the clients to perform local updates.
             The current implementation did not use ray backend.
         '''
-        results = [client.step(PE) for client, PE in zip(self.clients, self.PEs)]
+
+        results = compute_with_remote_workers(self.remote_workers, self.clients, self.PEs)
 
         result = {
             "train loss":   torch.mean(torch.stack([result["train loss"] for result in results])),
@@ -277,7 +284,7 @@ def main(args):
                 f"No seed is manually set."
             )
 
-    device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
+    device = torch.device(f'cuda' if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
 
     # Init Dataloaders
     train_dataloaders, test_dataloaders, _ = prepare_dataloaders(args)
@@ -295,7 +302,21 @@ def main(args):
                enumerate(zip(local_models, train_dataloaders, test_dataloaders))]
 
     # Init Server
-    server = Server(args, global_model, representation_keys, clients)
+    if args.n_gpus > 0:
+        RemoteWorker = ray.remote(num_gpus = args.ray_gpu_fraction)(Worker)
+        n_remote_workers = int(1 / args.ray_gpu_fraction) * args.n_gpus
+        print(
+            f"Creating {n_remote_workers} remote workers altogether."
+        )
+        remote_workers = [RemoteWorker.remote() for _ in range(n_remote_workers)]
+    else:
+        print(
+            f"No remote workers is created. Clients are evaluated sequentially."
+        )
+        remote_workers = None
+
+
+    server = Server(args, global_model, representation_keys, clients, remote_workers)
 
 
     train_losses = []
@@ -318,6 +339,12 @@ def main(args):
 
 if __name__ == '__main__':
     args = args_parser()
+
+    n_gpus = set_cuda(args)
+
+    if args.use_ray and n_gpus > 0:
+        ray.init(num_gpus=n_gpus, log_to_driver=False)
+
     '''
     ####################################################################################################################
         If this is the main file, call <main> with "args" as it is.

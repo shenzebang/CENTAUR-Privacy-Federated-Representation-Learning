@@ -11,17 +11,18 @@ args=(DP-FedAvg-ft.py
      --seed 1\
      --num_users 100\
     #  DP configuration
-     --disable-dp\
+#      --disable-dp\
      --epsilon 1\
      --delta 1e-5\
      --dp_clip 1\
     #  save/load configuration
     #  backend configuration
-     --gpu 3
-#      --use_ray
+     --gpu 0-1-2-3
+     --use_ray
+     --ray_gpu_fraction 0.3
     #  test configuration
     #  train configuration
-     --lr-rep 1e-1
+     --lr 1e-1
      --lr-head 1e-2
      --ft-ep 15
      --local_ep 1

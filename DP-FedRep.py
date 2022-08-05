@@ -9,6 +9,7 @@ from Models.models import get_model
 from common_utils import *
 from data_utils import prepare_dataloaders
 from options import args_parser
+from ray_remote_worker import *
 
 warnings.filterwarnings("ignore")
 
@@ -57,7 +58,7 @@ class Client:
                     max_physical_batch_size=args.MAX_PHYSICAL_BATCH_SIZE,
                     optimizer=optimizer
             ) as memory_safe_data_loader:
-                for rep_epoch in range(self.args.local_rep_ep):
+                for rep_epoch in range(self.args.local_ep):
                     for _batch_idx, (data, target) in enumerate(memory_safe_data_loader):
                         data, target = data.to(self.device), target.to(self.device)
                         output = model(data)
@@ -73,7 +74,7 @@ class Client:
                         acc = accuracy(preds, labels)
                         top1_acc.append(acc)
         else:
-            for rep_epoch in range(self.args.local_rep_ep):
+            for rep_epoch in range(self.args.local_ep):
                 for _batch_idx, (data, target) in enumerate(train_loader):
                     data, target = data.to(self.device), target.to(self.device)
                     output = model(data)
@@ -110,10 +111,7 @@ class Client:
 
         losses = []
         top1_acc = []
-        local_head_ep = max(self.args.local_ep - self.args.local_rep_ep, 1)
-        if self.args.local_ep == self.args.local_rep_ep:
-            print("Number of local head epochs is ZERO!")
-        for head_epoch in range(local_head_ep):
+        for head_epoch in range(args.local_head_ep):
             for _batch_idx, (data, target) in enumerate(self.train_dataloader):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
@@ -179,7 +177,7 @@ class Client:
         return result
 
 class Server:
-    def __init__(self, args, model: nn.Module, representation_keys: List[str], clients: List[Client]):
+    def __init__(self, args, model: nn.Module, representation_keys: List[str], clients: List[Client], remote_workers):
         self.args = args
         self.model = model
         self.representation_keys = representation_keys
@@ -187,7 +185,7 @@ class Server:
         self.PEs = [None] * args.num_users
         if not args.disable_dp:
             self.PEs = [PrivacyEngine(secure_mode=args.secure_rng) for _ in range(args.num_users)]
-
+        self.remote_workers = remote_workers
 
     def broadcast(self):
         for client in self.clients:
@@ -216,7 +214,7 @@ class Server:
             Server orchestrates the clients to perform local updates.
             The current implementation did not use ray backend.
         '''
-        results = [client.step(PE) for client, PE in zip(self.clients, self.PEs)]
+        results = compute_with_remote_workers(self.remote_workers, self.clients, self.PEs)
 
         result = {
             "train loss":   torch.mean(torch.stack([result["train loss"] for result in results])),
@@ -286,7 +284,7 @@ def main(args):
                 f"No seed is manually set."
             )
 
-    device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
+    device = torch.device(f'cuda' if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
 
     # Init Dataloaders
     train_dataloaders, test_dataloaders, _ = prepare_dataloaders(args)
@@ -304,7 +302,20 @@ def main(args):
                enumerate(zip(local_models, train_dataloaders, test_dataloaders))]
 
     # Init Server
-    server = Server(args, global_model, representation_keys, clients)
+    if args.n_gpus > 0 and args.use_ray:
+        RemoteWorker = ray.remote(num_gpus=args.ray_gpu_fraction)(Worker)
+        n_remote_workers = int(1 / args.ray_gpu_fraction) * args.n_gpus
+        print(
+            f"Creating {n_remote_workers} remote workers altogether."
+        )
+        remote_workers = [RemoteWorker.remote() for _ in range(n_remote_workers)]
+    else:
+        print(
+            f"No remote workers is created. Clients are evaluated sequentially."
+        )
+        remote_workers = None
+
+    server = Server(args, global_model, representation_keys, clients, remote_workers)
 
 
     train_losses = []
@@ -327,6 +338,11 @@ def main(args):
 
 if __name__ == '__main__':
     args = args_parser()
+
+    n_gpus = set_cuda(args)
+
+    if args.use_ray and n_gpus > 0:
+        ray.init(num_gpus=n_gpus, log_to_driver=False)
     '''
     ####################################################################################################################
         If this is the main file, call <main> with "args" as it is.
