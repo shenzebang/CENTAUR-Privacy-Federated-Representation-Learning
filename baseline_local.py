@@ -25,7 +25,7 @@ from opacus import PrivacyEngine
 from torch import nn
 from torch.utils.data import DataLoader
 
-from Models.models import get_model
+from models.models import get_model
 from common_utils import accuracy, seed_all, make_private
 from data_utils import prepare_dataloaders
 from options import args_parser

@@ -12,7 +12,7 @@ from torch import nn
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from Models.models import get_model
+from models.models import get_model
 from common_utils import accuracy, seed_all, make_private
 from options import args_parser
 from data_utils import get_dataset, get_transform

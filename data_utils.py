@@ -8,7 +8,7 @@ from filelock import FileLock
 from torchvision import datasets
 
 
-from Models.transforms import trans_mnist, trans_cifar10_train, trans_cifar10_val, trans_cifar100_train, \
+from models.transforms import trans_mnist, trans_cifar10_train, trans_cifar10_val, trans_cifar100_train, \
     trans_cifar100_val
 
 import random

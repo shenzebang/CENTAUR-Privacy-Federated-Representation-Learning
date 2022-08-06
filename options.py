@@ -93,7 +93,7 @@ def args_parser():
     parser.add_argument('--num_channels', type=int, default=3, help="number of channels of imges")
 
     # Experiment configuration
-    parser.add_argument('--arc', type=str, default='fl', help="architecture (central, local, fl)")
+    parser.add_argument('--alg', type=str, default='DP_FedRep', choices=['DP_FedRep', 'DP_FedAvg_ft'])
     parser.add_argument('--num_users', type=int, default=100, help="number of users: n")
     parser.add_argument('--num_users_under', type=int, default=1,
                         help="number of underlying users (for centralized setting)")
@@ -107,6 +107,7 @@ def args_parser():
         default=False,
         help="Enable data augmentation for vision tasks",
     )
+
     # model configuration
     parser.add_argument('--model', type=str, default='mlp', help='model name', choices=['mlp', 'cnn', 'resnet'])
     parser.add_argument('--kernel_num', type=int, default=9, help='number of each kind of kernel')

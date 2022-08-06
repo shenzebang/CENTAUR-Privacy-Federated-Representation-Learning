@@ -1,4 +1,6 @@
-args=(DP-FedAvg-ft.py
+args=(main.py
+        #  algorithm configuration
+        --alg DP_FedAvg_ft
         #  model configuration
         --model cnn
         #  dataset configuration

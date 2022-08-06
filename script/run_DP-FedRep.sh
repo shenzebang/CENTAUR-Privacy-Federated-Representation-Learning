@@ -1,4 +1,6 @@
-args=(DP-FedRep.py
+args=(main.py
+        #  algorithm configuration
+        --alg DP_FedRep
         #  model configuration
         --model cnn
         #  dataset configuration
