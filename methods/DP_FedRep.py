@@ -230,6 +230,7 @@ class Server:
         # This step is to ensure the compatibility with the ray backend.
         for client, sd in zip(self.clients, results["sds"]):
             client.model.load_state_dict(sd)
+        # Update the PEs (mainly to update the privacy accountants)
         self.PEs = results["PEs"]
         # 3. Server aggregate the local updates
         self.aggregate(results["sds"])

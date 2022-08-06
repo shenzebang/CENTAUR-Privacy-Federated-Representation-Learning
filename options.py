@@ -93,7 +93,7 @@ def args_parser():
     parser.add_argument('--num_channels', type=int, default=3, help="number of channels of imges")
 
     # Experiment configuration
-    parser.add_argument('--alg', type=str, default='DP_FedRep', choices=['DP_FedRep', 'DP_FedAvg_ft'])
+    parser.add_argument('--alg', type=str, default='DP_FedRep', choices=['DP_FedRep', 'DP_FedAvg_ft', 'PPSGD'])
     parser.add_argument('--num_users', type=int, default=100, help="number of users: n")
     parser.add_argument('--num_users_under', type=int, default=1,
                         help="number of underlying users (for centralized setting)")
@@ -136,6 +136,9 @@ def args_parser():
     ### DP-FedAvg-ft
     parser.add_argument('--ft-ep', type=int, default=1,
                         help="the number of local epochs for fine tuning the head")
+
+    ### PPSGD
+    parser.add_argument('--lr_l', type=float, default=0.1, help="learning rate of the local model")
 
     args = parser.parse_args()
     return args

@@ -22,6 +22,7 @@ class Client:
         self.idx = idx
         self.args = args
         self.model = copy.deepcopy(model)
+        self.local_model = copy.deepcopy(model)
         self.representation_keys = representation_keys
         self.train_dataloader = train_dataloader
         self.test_dataloader = test_dataloader
@@ -45,7 +46,11 @@ class Client:
                               )
         model, optimizer, train_loader = make_private(self.args, PE, self.model, optimizer, self.train_dataloader)
 
-
+        optimizer_l = optim.SGD(self.model.parameters(),
+                              lr=self.args.lr_l,
+                              momentum=self.args.momentum,
+                              weight_decay=self.args.weight_decay
+                              )
         losses = []
         top1_acc = []
 
@@ -58,11 +63,13 @@ class Client:
                 for rep_epoch in range(self.args.local_ep):
                     for _batch_idx, (data, target) in enumerate(memory_safe_data_loader):
                         data, target = data.to(self.device), target.to(self.device)
-                        output = model(data)
+                        output = model(data) + self.local_model(data)
                         loss = self.criterion(output, target)
                         loss.backward()
                         optimizer.step()
+                        optimizer_l.step()
                         optimizer.zero_grad()
+                        optimizer_l.zero_grad()
                         model.zero_grad()
                         losses.append(loss.item())
 
@@ -74,11 +81,13 @@ class Client:
             for rep_epoch in range(self.args.local_ep):
                 for _batch_idx, (data, target) in enumerate(train_loader):
                     data, target = data.to(self.device), target.to(self.device)
-                    output = model(data)
+                    output = model(data) + self.local_model(data)
                     loss = self.criterion(output, target)
                     loss.backward()
                     optimizer.step()
+                    optimizer_l.step()
                     optimizer.zero_grad()
+                    optimizer_l.zero_grad()
                     losses.append(loss.item())
 
                     preds = np.argmax(output.detach().cpu().numpy(), axis=1)
@@ -93,43 +102,7 @@ class Client:
 
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
-    def _fine_tune_head(self, model_head: nn.Module):
-        '''
-            Optimize over the local head of a copy of the model.
-            The result is not incorporated into "self.model"
-        '''
-        deactivate_in_keys(model_head, self.representation_keys)
-        model_head.train()
-
-        optimizer = optim.SGD(model_head.parameters(),
-                              lr=self.args.lr_head,
-                              momentum=self.args.momentum,
-                              weight_decay=self.args.weight_decay
-                              )
-
-        # Todo: Create a new dataset to save time!
-
-        losses = []
-        top1_acc = []
-        for head_epoch in range(self.args.ft_ep):
-            for _batch_idx, (data, target) in enumerate(self.train_dataloader):
-                data, target = data.to(self.device), target.to(self.device)
-                output = model_head(data)
-                loss = self.criterion(output, target)
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-                losses.append(loss.item())
-
-                preds = np.argmax(output.detach().cpu().numpy(), axis=1)
-                labels = target.detach().cpu().numpy()
-                acc = accuracy(preds, labels)
-                top1_acc.append(acc)
-
-        return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
-
-    def test(self, model_head: nn.Module):
-        model_head.eval()
+    def test(self):
 
         with torch.autograd.no_grad():
             losses = []
@@ -137,7 +110,7 @@ class Client:
 
             for _batch_idx, (data, target) in enumerate(self.test_dataloader):
                 data, target = data.to(self.device), target.to(self.device)
-                output = model_head(data)
+                output = self.model(data) + self.local_model(data)
                 loss = self.criterion(output, target)
                 losses.append(loss.item())
 
@@ -151,14 +124,10 @@ class Client:
 
     def step(self, PE: PrivacyEngine):
         # 1. Fine tune the head of a copy
-        model_head = copy.deepcopy(self.model)
-        _, _ = self._fine_tune_head(model_head)
 
         # 2. Calculate the performance of the representation from the previous iteration
         #    Only the fine tuned model is tested
-        test_loss, test_acc = self.test(model_head)
-
-        del model_head
+        test_loss, test_acc = self.test()
 
         # 3. Update the representation
         train_loss, train_acc = self._train(PE)
@@ -170,6 +139,7 @@ class Client:
             "test loss":    test_loss,
             "test acc":     test_acc,
             "sd":           self.model.state_dict(),
+            "sdl":          self.local_model.state_dict(),
             "PE":           PE
         }
 
@@ -219,6 +189,7 @@ class Server:
             "test loss":    torch.mean(torch.stack([result["test loss"] for result in results])),
             "test acc":     torch.mean(torch.stack([result["test acc"] for result in results])),
             "sds":          [result["sd"] for result in results],
+            "sdls":         [result["sdl"] for result in results],
             "PEs":          [result["PE"] for result in results]
         }
         return result
@@ -229,8 +200,8 @@ class Server:
         # 2. Server orchestrates the clients to perform local updates
         results = self.local_update()
         # This step is to ensure the compatibility with the ray backend.
-        for client, sd in zip(self.clients, results["sds"]):
-            client.model.load_state_dict(sd)
+        for client, sdl in zip(self.clients, results["sdls"]):
+            client.local_model.load_state_dict(sdl)
         self.PEs = results["PEs"]
         # 3. Server aggregate the local updates
         self.aggregate(results["sds"])
