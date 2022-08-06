@@ -10,6 +10,8 @@ from common_utils import *
 from data_utils import prepare_dataloaders
 from options import args_parser
 from ray_remote_worker import *
+from torchsummary import summary
+
 
 warnings.filterwarnings("ignore")
 
@@ -292,6 +294,7 @@ def main(args):
 
     # Init model
     global_model = get_model(args).to(device)
+    summary(global_model, input_size=(3, 32, 32))
     local_models = [copy.deepcopy(global_model).to(device) for _ in range(args.num_users)]
 
     # get the representation keys

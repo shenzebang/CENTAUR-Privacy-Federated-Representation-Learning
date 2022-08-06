@@ -7,7 +7,7 @@ args=(DP-FedAvg-ft.py
         --num_classes 10
         #  experiment configuration
         #      --data_augmentation
-        --epochs 100
+        --epochs 400
         --seed 1
         --num_users 100
         #  DP configuration

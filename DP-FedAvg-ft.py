@@ -11,6 +11,7 @@ from data_utils import prepare_dataloaders
 from options import args_parser
 
 from ray_remote_worker import *
+from torchsummary import summary
 
 warnings.filterwarnings("ignore")
 
@@ -111,6 +112,8 @@ class Client:
                               momentum=args.momentum,
                               weight_decay=args.weight_decay
                               )
+
+        # Todo: Create a new dataset to save time!
 
         losses = []
         top1_acc = []
@@ -271,6 +274,8 @@ class Server:
         return results["train loss"], results["train acc"], results["test loss"], results["test acc"]
 
 
+cuda_memory = CudaMemoryPrinter()
+
 def main(args):
     if args.seed != 0:
         seed_all(args.seed)
@@ -288,12 +293,10 @@ def main(args):
 
     # Init Dataloaders
     train_dataloaders, test_dataloaders, _ = prepare_dataloaders(args)
-
-
     # Init model
     global_model = get_model(args).to(device)
+    summary(global_model, input_size=(3, 32, 32))
     local_models = [copy.deepcopy(global_model).to(device) for _ in range(args.num_users)]
-
     # get the representation keys
     representation_keys = get_representation_keys(args, global_model)
 
@@ -302,7 +305,7 @@ def main(args):
                enumerate(zip(local_models, train_dataloaders, test_dataloaders))]
 
     # Init Server
-    if args.n_gpus > 0:
+    if args.n_gpus > 0 and args.use_ray:
         RemoteWorker = ray.remote(num_gpus = args.ray_gpu_fraction)(Worker)
         n_remote_workers = int(1 / args.ray_gpu_fraction) * args.n_gpus
         print(
@@ -317,7 +320,6 @@ def main(args):
 
 
     server = Server(args, global_model, representation_keys, clients, remote_workers)
-
 
     train_losses = []
     train_accs = []

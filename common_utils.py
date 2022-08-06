@@ -138,3 +138,15 @@ def set_cuda(args):
     os.environ["CUDA_VISIBLE_DEVICES"] = gpus
     args.n_gpus = n_gpus
     return n_gpus
+
+
+class CudaMemoryPrinter:
+    def __init__(self):
+        self.idx = 0
+
+    def print(self):
+        current_memory, total_memory = torch.cuda.mem_get_info(0)
+        print(
+            f"{self.idx}. {(total_memory - current_memory)/1024**2}"
+        )
+        self.idx += 1
