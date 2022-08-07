@@ -57,7 +57,7 @@ def main(args):
     summary(global_model, input_size=(3, 32, 32))
 
     # get the representation keys
-    representation_keys = get_representation_keys(args, global_model)
+    representation_keys = get_representation_keys(global_model)
 
     # Init Clients
     clients = [Client(idx, args, representation_keys, traindlr, testdlr, global_model, device) for idx, (traindlr, testdlr) in
@@ -70,7 +70,7 @@ def main(args):
         print(
             f"[ Creating {n_remote_workers} remote workers altogether. ]"
         )
-        remote_workers = [RemoteWorker.remote() for _ in range(n_remote_workers)]
+        remote_workers = [RemoteWorker.remote(args.n_gpus, wid) for wid in range(n_remote_workers)]
     else:
         print(
             f"[ No remote workers is created. Clients are evaluated sequentially. ]"

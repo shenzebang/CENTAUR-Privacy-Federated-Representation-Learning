@@ -49,7 +49,7 @@ def get_dataset(dataset_name, train=True, transform=None):
     return dataset
 
 
-def prepare_dataloaders(args):
+def prepare_dataloaders(args, device='cpu'):
     if args.iid:
         sample_method = 'iid_'
     else:
@@ -81,6 +81,7 @@ def prepare_dataloaders(args):
         train_batch_size_too_large = False
         for idx in range(args.num_users):
             dataset_train_idx = DatasetSplit(dataset_train, dict_users_train[idx])
+            dataset_train_idx = DatasetSplit2Cuda(dataset_train_idx, device)
             batch_size = min(args.batch_size, len(dataset_train_idx))
             train_batch_size_too_large = False if args.batch_size <= len(dataset_train_idx) else True
             train_dataloaders.append(DataLoader(dataset_train_idx,
@@ -530,6 +531,27 @@ class DatasetSplit(Dataset):
         else:
             image, label = self.dataset[self.idxs[item]]
         return image, label
+
+class DatasetSplit2Cuda(Dataset):
+    def __init__(self, d_split: DatasetSplit, device='cpu'):
+        assert d_split.name == None # only CIFAR10/CIFAR100/MNIST are supported for now
+
+        self.images, self.labels = self.move_to_device(d_split, device)
+        self.len = len(d_split)
+
+    def __len__(self):
+        return self.len
+
+    def __getitem__(self, item):
+        return self.images[item], self.labels[item]
+
+    def move_to_device(self, d_split: DatasetSplit, device):
+        image_and_label = [d_split.dataset[d_split.idxs[i]] for i in range(len(d_split))]
+        images = torch.stack([image for image, _ in image_and_label])
+        labels = torch.stack([torch.tensor(label) for _, label in image_and_label])
+
+        return images.to(device), labels.to(device)
+
 
 class Triage(Dataset):
     def __init__(self, dataframe, tokenizer, max_len):

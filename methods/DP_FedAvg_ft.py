@@ -171,7 +171,6 @@ class Client:
             "sd":           self.model.state_dict(),
             "PE":           PE
         }
-
         if self.args.verbose:
             print(
                 f"Client {self.idx} finished."
@@ -232,6 +231,8 @@ class Server:
         # 3. Server aggregate the local updates
         self.aggregate(results["sds"])
 
+        del results["sds"]
+        torch.cuda.empty_cache()
 
         train_loss = results["train loss"]
         train_acc = results["train acc"]
@@ -260,6 +261,7 @@ class Server:
             print(f"Test Epoch: {epoch} \t Loss: {test_loss:.6f}"
                   f"\t Acc@1: {test_acc * 100:.6f} "
                   )
+
 
         # return results
         return results["train loss"], results["train acc"], results["test loss"], results["test acc"]

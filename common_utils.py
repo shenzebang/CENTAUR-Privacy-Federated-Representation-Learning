@@ -116,6 +116,8 @@ def set_cuda(args):
     '''
         Use "args.gpu" to determine the gpu setting.
     '''
+    os.environ['CUDA_LAUNCH_BLOCKING']='1'
+
     gpus = args.gpu.split('-')
     negative_gpu = False
     for gpu in gpus:

@@ -1,13 +1,21 @@
 import ray
 import itertools
 
-class Worker:
-    def step(self, clients, PEs):
+import torch.cuda
 
+
+class Worker:
+    def __init__(self, n_gpus: int, wid: int):
+        self.wid = wid
+        self.n_gpus = n_gpus
+
+    def step(self, clients, PEs):
         result = []
 
         for client, PE in zip(clients, PEs):
             result.append(client.step(PE))
+            if self.wid % self.n_gpus == 0:
+                torch.cuda.empty_cache()
 
         return result
 

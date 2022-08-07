@@ -9,7 +9,7 @@ args=(main.py
         --num_classes 10
         #  experiment configuration
         #      --data_augmentation
-        --epochs 400
+        --epochs 600
         --seed 1
         --num_users 100
         #  DP configuration
