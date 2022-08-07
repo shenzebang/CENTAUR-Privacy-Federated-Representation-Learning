@@ -57,7 +57,7 @@ def main(args):
     summary(global_model, input_size=(3, 32, 32))
 
     # get the representation keys
-    representation_keys = get_representation_keys(global_model)
+    representation_keys = get_representation_keys(args, global_model)
 
     # Init Clients
     clients = [Client(idx, args, representation_keys, traindlr, testdlr, global_model, device) for idx, (traindlr, testdlr) in
