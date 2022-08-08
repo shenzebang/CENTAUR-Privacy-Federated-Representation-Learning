@@ -38,7 +38,7 @@ class Client:
 
         self.model.train()
         optimizer = optim.SGD(self.model.parameters(),
-                              lr=self.args.lr_rep,
+                              lr=self.args.lr,
                               momentum=self.args.momentum,
                               weight_decay=self.args.weight_decay
                               )

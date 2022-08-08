@@ -13,6 +13,8 @@ from methods.PPSGD import Server as PPSGD_Server
 from models.models import get_model
 from options import args_parser
 from utils.ray_remote_worker import *
+from ray import tune
+
 
 ALGORITHMS = {
     "DP_FedAvg_ft"  : (DP_FedAvg_ft_Server, DP_FedAvg_ft_Client),
@@ -24,7 +26,10 @@ ALGORITHMS = {
 
 warnings.filterwarnings("ignore")
 
-def main(args):
+def main(args, is_ray_tune = False, checkpoint_dir=None):
+    '''
+         "checkpoint_dir" will be used to ensure future compatibility with other ray.tune schedulers.
+    '''
     if args.seed != 0:
         seed_all(args.seed)
         if args.verbose:
@@ -55,6 +60,19 @@ def main(args):
     # Init model
     global_model = get_model(args).to(device)
     summary(global_model, input_size=(3, 32, 32))
+    if checkpoint_dir is not None:
+        print(
+            "Unless starting from a pretrained model, "
+            "when training from scratch, "
+            "loading checkpoint may not make much sense since the privacy accountant is not loaded."
+        )
+        checkpoint = os.path.join(checkpoint_dir, "checkpoint")
+        model_state = torch.load(checkpoint)
+        global_model.load_state_dict(model_state)
+        if args.verbose:
+            print(
+                f"Load checkpoint (model_state) from file {checkpoint}."
+            )
 
     # get the representation keys
     representation_keys = get_representation_keys(args, global_model)
@@ -87,10 +105,22 @@ def main(args):
     # Run experiment
     for epoch in range(args.epochs):
         train_loss, train_acc, test_loss, test_acc = server.step(epoch)
-        train_losses.append(train_loss)
-        train_accs.append(train_acc)
-        test_losses.append(test_loss)
-        test_accs.append(test_acc)
+        if is_ray_tune:
+            with tune.checkpoint_dir(step=epoch) as checkpoint_dir:
+                path = os.path.join(checkpoint_dir, "checkpoint")
+                torch.save(server.model.state_dict(), path)
+
+            tune.report(
+                train_loss  = train_loss.item(),
+                train_acc   = train_acc.item(),
+                test_loss   = test_loss.item(),
+                test_acc    = test_acc.item()
+            )
+
+        train_losses.append(train_loss.item())
+        train_accs.append(train_acc.item())
+        test_losses.append(test_loss.item())
+        test_accs.append(test_acc.item())
 
     # return results
     return train_losses, train_accs, server.model.state_dict()
@@ -107,11 +137,12 @@ if __name__ == '__main__':
         ray.init(num_gpus=n_gpus, log_to_driver=False)
     '''
     ####################################################################################################################
-        If this is the main file, call <main> with "args" as it is.
+        If this is the main file, call <main> with "args" as it is and "is_ray_tune" is set to False.
     ####################################################################################################################    
 
     ####################################################################################################################
-        If using ray.tune for hyper parameter tuning, <main> will be wrapped to produce <main_tune>.
+        If using ray.tune for hyper parameter tuning, <main> will be wrapped to produce <main_tune> and "is_ray_tune" is
+        set to True.
 
             In <main_tune>, the first input is "config", which contains the hyper parameters to be tuned by ray.tune.
                 1.  According to the "config" variable, the corresponding argument in "args" will be changed.
