@@ -4,8 +4,8 @@ import warnings
 from opacus.utils.batch_memory_manager import BatchMemoryManager
 from torch import optim
 
-from common_utils import *
-from ray_remote_worker import *
+from utils.common_utils import *
+from utils.ray_remote_worker import *
 
 warnings.filterwarnings("ignore")
 

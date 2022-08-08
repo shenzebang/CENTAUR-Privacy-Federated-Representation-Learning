@@ -5,17 +5,17 @@ args=(baseline_local.py
     #  model configuration
     --model cnn
     #  experiment configuration
-    --data_augmentation
+#     --data_augmentation
     --epochs 1
-    --num_users 20
-    --shard_per_user 5
+    --num_users 100
+    --shard_per_user 2
     --seed 1
     --n_runs 1
     #  DP configuration
     --disable-dp
     --epsilon 1
     --delta 1e-5
-    --dp_clip 1.2
+    --dp_clip 1
     #  save/load configuration
     #  backend configuration
     --gpu 0

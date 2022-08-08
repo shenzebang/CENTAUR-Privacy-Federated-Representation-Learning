@@ -26,8 +26,8 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from models.models import get_model
-from common_utils import accuracy, seed_all, make_private
-from data_utils import prepare_dataloaders
+from utils.common_utils import accuracy, seed_all, make_private
+from utils.data_utils import prepare_dataloaders
 from options import args_parser
 
 warnings.filterwarnings("ignore")

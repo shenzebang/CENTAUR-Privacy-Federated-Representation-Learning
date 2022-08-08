@@ -13,9 +13,9 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from models.models import get_model
-from common_utils import accuracy, seed_all, make_private
+from utils.common_utils import accuracy, seed_all, make_private
 from options import args_parser
-from data_utils import get_dataset, get_transform
+from utils.data_utils import get_dataset, get_transform
 from collections import OrderedDict
 
 

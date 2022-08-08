@@ -5,7 +5,7 @@ args=(main.py
         --model cnn
         #  dataset configuration
         --dataset cifar10
-        --shard_per_user 5
+        --shard_per_user 2
         --num_classes 10
         #  experiment configuration
         #      --data_augmentation

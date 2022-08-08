@@ -2,8 +2,8 @@ import warnings
 
 from torchsummary import summary
 
-from common_utils import *
-from data_utils import prepare_dataloaders
+from utils.common_utils import *
+from utils.data_utils import prepare_dataloaders
 from methods.DP_FedAvg_ft import Client as DP_FedAvg_ft_Client
 from methods.DP_FedAvg_ft import Server as DP_FedAvg_ft_Server
 from methods.DP_FedRep import Client as DP_FedRep_Client
@@ -12,7 +12,7 @@ from methods.PPSGD import Client as PPSGD_Client
 from methods.PPSGD import Server as PPSGD_Server
 from models.models import get_model
 from options import args_parser
-from ray_remote_worker import *
+from utils.ray_remote_worker import *
 
 ALGORITHMS = {
     "DP_FedAvg_ft"  : (DP_FedAvg_ft_Server, DP_FedAvg_ft_Client),
