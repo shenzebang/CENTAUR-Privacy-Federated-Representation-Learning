@@ -1,15 +1,15 @@
 args=(main.py
         #  algorithm configuration
-        --alg DP_FedAvg_ft
+        --alg DP_FedRep
         #  model configuration
         --model cnn
         #  dataset configuration
         --dataset cifar10
-        --shard_per_user 2
+        --shard_per_user 5
         --num_classes 10
         #  experiment configuration
         #      --data_augmentation
-        --epochs 600
+        --epochs 500
         --seed 1
         --num_users 100
         #  DP configuration
@@ -29,9 +29,9 @@ args=(main.py
         --local_ep 1
         # --verbose
         # algorithm specific configuration
-        --lr 1e-1
+        --lr-rep 1e-1
         --lr-head 1e-2
-        --ft-ep 15
+        --local_head_ep 15
      )
 
 python "${args[@]}"

@@ -1,6 +1,6 @@
 args=(main.py
         #  algorithm configuration
-        --alg DP_FedRep
+        --alg PPSGD
         #  model configuration
         --model cnn
         #  dataset configuration
@@ -9,7 +9,7 @@ args=(main.py
         --num_classes 10
         #  experiment configuration
         #      --data_augmentation
-        --epochs 600
+        --epochs 400
         --seed 1
         --num_users 100
         #  DP configuration
@@ -29,9 +29,8 @@ args=(main.py
         --local_ep 1
         # --verbose
         # algorithm specific configuration
-        --lr-rep 1e-1
-        --lr-head 1e-2
-        --local_head_ep 15
+        --lr 1e-3
+        --lr_l 1e-1
      )
 
 python "${args[@]}"
