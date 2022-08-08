@@ -43,7 +43,7 @@ def update_args_with_config(args, config):
     '''
     if args.alg == 'DP_FedRep':
         args.lr = config['lr']
-        args.lr_head = config['lr_head']
+        # args.lr_head = config['lr_head']
         args.dp_clip = config['C']
         args.epochs = config['epochs']
         # args.local_ep = config['local_ep']
@@ -54,7 +54,7 @@ def update_args_with_config(args, config):
         args.dp_clip = config['C']
         args.epochs = config['epochs']
         args.train_batch_size = config['batch size']
-        args.lr_head = config['lr_head']
+        # args.lr_head = config['lr_head']
         # args.local_ep = config['local_ep']
         # args.ft_ep = config['ft_ep']
     else:
