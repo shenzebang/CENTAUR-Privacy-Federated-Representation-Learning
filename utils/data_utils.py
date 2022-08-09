@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, Dataset
 import json
 from filelock import FileLock
 from torchvision import datasets
-
+from typing import List
 
 from models.transforms import trans_mnist, trans_cifar10_train, trans_cifar10_val, trans_cifar100_train, \
     trans_cifar100_val
@@ -61,7 +61,7 @@ def prepare_dataloaders(args, device='cpu'):
     ###########################    CIFAR and MNIST   ###################################################################
     ####################################################################################################################
     if 'cifar' in args.dataset or args.dataset == 'mnist':
-        dataset_train, dataset_test, dict_users_train, dict_users_test, dict_users_class, overlap = get_data(args)
+        dataset_train, dataset_test, dict_users_train, dict_users_test, dict_users_class = get_data(args)
         if args.model_dir != 'DoNotSave':
             model_save_dir = args.model_dir + '/' + sample_method + args.dataset + '_' + args.arc + '_' + args.alg \
                              + '_' + str(args.num_users) + '_' + str(args.shard_size) + '_' + str(args.shard_per_user) + '_' \
@@ -79,12 +79,12 @@ def prepare_dataloaders(args, device='cpu'):
 
         train_dataloaders = []
         train_batch_size_too_large = False
-        for idx in range(args.num_users):
-            dataset_train_idx = DatasetSplit(dataset_train, dict_users_train[idx])
-            dataset_train_idx = DatasetSplit2Cuda(dataset_train_idx, device)
-            batch_size = min(args.batch_size, len(dataset_train_idx))
-            train_batch_size_too_large = False if args.batch_size <= len(dataset_train_idx) else True
-            train_dataloaders.append(DataLoader(dataset_train_idx,
+        for uid in range(args.num_users):
+            dataset_train_uid = DatasetSplit(dataset_train, dict_users_train[uid])
+            dataset_train_uid = DatasetSplit2Device(dataset_train_uid, device)
+            batch_size = min(args.batch_size, len(dataset_train_uid))
+            train_batch_size_too_large = False if args.batch_size <= len(dataset_train_uid) and not train_batch_size_too_large else True
+            train_dataloaders.append(DataLoader(dataset_train_uid,
                                         batch_size=batch_size,
                                         num_workers=1,
                                         pin_memory=True,
@@ -97,11 +97,11 @@ def prepare_dataloaders(args, device='cpu'):
 
         test_dataloaders = []
         test_batch_size_too_large = False
-        for idx in range(args.num_users):
-            dataset_test_idx = DatasetSplit(dataset_test, dict_users_test[idx])
-            batch_size = min(args.test_batch_size, len(dataset_test_idx))
-            test_batch_size_too_large = False if args.batch_size <= len(dataset_test_idx) else True
-            test_dataloaders.append(DataLoader(dataset_test_idx,
+        for uid in range(args.num_users):
+            dataset_test_uid = DatasetSplit(dataset_test, dict_users_test[uid])
+            batch_size = min(args.test_batch_size, len(dataset_test_uid))
+            test_batch_size_too_large = False if args.batch_size <= len(dataset_test_uid) and not test_batch_size_too_large else True
+            test_dataloaders.append(DataLoader(dataset_test_uid,
                                 batch_size=batch_size,
                                 num_workers=1,
                                 pin_memory=True,
@@ -113,7 +113,6 @@ def prepare_dataloaders(args, device='cpu'):
                 f"The test batch size is larger than the size of the local testing dataset."
             )
 
-        global_test_dataloader = DataLoader(dataset_test, batch_size=args.test_batch_size, num_workers=1, pin_memory=True)
 
     ####################################################################################################################
     ###########################    harass   ############################################################################
@@ -201,7 +200,7 @@ def prepare_dataloaders(args, device='cpu'):
             args.num_users = 1
 
 
-    return train_dataloaders, test_dataloaders, global_test_dataloader
+    return train_dataloaders, test_dataloaders
 
 
 def get_data(args, tokenizer=None):
@@ -215,8 +214,8 @@ def get_data(args, tokenizer=None):
                 dict_users_train = iid(dataset_train, args.num_users)
                 dict_users_test = iid(dataset_test, args.num_users)
             else:
-                dict_users_train, rand_set_all, overlap = noniid(dataset_train, args.num_users, args.shard_per_user, args.shard_size, args.num_classes, args.seed, args.sample_size_var)
-                dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.shard_size, args.num_classes, args.seed, args.sample_size_var, rand_set_all=rand_set_all, testb=True)
+                dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var)
+                dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var, user_to_classes=user_to_classes)
         elif args.dataset == 'cifar10':
             tran_train = trans_cifar10_train if args.data_augmentation else trans_cifar10_val
             dataset_train = datasets.CIFAR10('~/data/cifar10', train=True, download=True, transform=tran_train)
@@ -225,8 +224,8 @@ def get_data(args, tokenizer=None):
                 dict_users_train = iid(dataset_train, args.num_users)
                 dict_users_test = iid(dataset_test, args.num_users)
             else:
-                dict_users_train, rand_set_all, overlap = noniid(dataset_train, args.num_users, args.shard_per_user, args.shard_size, args.num_classes, args.seed, args.sample_size_var)
-                dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.shard_size, args.num_classes, args.seed, args.sample_size_var, rand_set_all=rand_set_all, testb=True)
+                dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var)
+                dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var, user_to_classes=user_to_classes)
         elif args.dataset == 'cifar100':
             tran_train = trans_cifar100_train if args.data_augmentation else trans_cifar100_val
             dataset_train = datasets.CIFAR100('~/data/cifar100', train=True, download=True, transform=tran_train)
@@ -235,8 +234,8 @@ def get_data(args, tokenizer=None):
                 dict_users_train = iid(dataset_train, args.num_users)
                 dict_users_test = iid(dataset_test, args.num_users)
             else:
-                dict_users_train, rand_set_all, overlap = noniid(dataset_train, args.num_users, args.shard_per_user, args.shard_size, args.num_classes, args.seed, args.sample_size_var)
-                dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.shard_size, args.num_classes, args.seed, args.sample_size_var, rand_set_all=rand_set_all, testb=True)
+                dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var)
+                dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var, user_to_classes=user_to_classes)
         elif args.dataset == 'harass':
             df = pd.read_csv('data/Sexual_Harassment_Data/Harassment_Cleaned_tweets.csv')
             df.head()
@@ -260,16 +259,16 @@ def get_data(args, tokenizer=None):
             # print([len(dict_users_train[i]) for i in dict_users_train])
             # dict_users_test = noniid_2classes(dataset_test, args.num_users)
             # print([len(dict_users_test[i]) for i in dict_users_test])
-            dict_users_train, rand_set_all = noniid_triage_2class(dataset_train, args.num_users, args.shard_per_user, args.num_classes)
-            dict_users_test, rand_set_all = noniid_triage_2class(dataset_test, args.num_users, args.shard_per_user, args.num_classes,
-                                                   rand_set_all=rand_set_all, testb=True)
+            dict_users_train, user_to_classes = noniid_triage_2class(dataset_train, args.num_users, args.shard_per_user, args.num_classes)
+            dict_users_test, user_to_classes = noniid_triage_2class(dataset_test, args.num_users, args.shard_per_user, args.num_classes,
+                                                   user_to_classes=user_to_classes, testb=True)
 
             return dataset_train, dataset_test, dict_users_train, dict_users_test
 
         else:
             exit('Error: unrecognized dataset')
 
-    return dataset_train, dataset_test, dict_users_train, dict_users_test, rand_set_all, overlap
+    return dataset_train, dataset_test, dict_users_train, dict_users_test, user_to_classes
 
 def iid(dataset, num_users):
     """
@@ -289,56 +288,39 @@ def iid(dataset, num_users):
 
     return dict_users
 
-def noniid(dataset, num_users, shard_per_user, shard_size, num_classes, seed, sample_size_var, rand_set_all = [], testb = False):
-    """
-    Sample non-I.I.D client data from MNIST dataset
-    :param dataset:
-    :param num_users:
-    :return:
-    """
-    """random.seed(seed)
-    np.random.seed(seed)"""
-
+def noniid(dataset, num_users, shard_per_user, num_classes, sample_size_var, user_to_classes = None):
     if sample_size_var > 0:
-        return noniid_diff_size(dataset, num_users, shard_per_user, num_classes, rand_set_all)
+        return noniid_diff_size(dataset, num_users, shard_per_user, num_classes, user_to_classes)
 
-    dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
+    dict_users = {uid: [] for uid in range(num_users)}
 
-    idxs_dict = {}
-    idxs_shards = {}
-    count = 0
-    class_len = []
-    shortest = len(dataset)
+    class_to_sample_ids = {
+        _class: [] for _class in range(num_classes) # class_id : id list of samples that has class_id
+    }
+
 
     # transform the dataset into a dictionary based on labels
     for i in range(len(dataset)):
         label = torch.tensor(dataset.targets[i]).item()
-        if label < num_classes and label not in idxs_dict.keys():
-            idxs_dict[label] = []
         if label < num_classes:
-            idxs_dict[label].append(i)
-            count += 1
+            class_to_sample_ids[label].append(i)
 
-    for label in idxs_dict.keys():
-        this_len = len(idxs_dict[label])
-        if this_len < shortest:
-            shortest = this_len
-        class_len.append(this_len)
+    shortest = min([len(class_to_sample_ids[_class]) for _class in class_to_sample_ids.keys()])
+
+    if shortest == 0:
+        raise ValueError('This dataset does not have sufficient number of classes!')
 
     # create test set
-    if testb and len(rand_set_all) > 0:
-        for u in range(num_users):
-            dict_users[u] = []
-            for l in rand_set_all[u]:
-                dict_users[u].extend(idxs_dict[l][:shortest])
+    if user_to_classes is not None:
+        for uid in range(num_users):
+            for _class in user_to_classes[uid]:
+                dict_users[uid].extend(class_to_sample_ids[_class])
         return dict_users
 
-    # shard_per_class = int(shortest / shard_size)
-
     shard_per_class = int(shard_per_user * num_users / num_classes)
-
-    for label in idxs_dict.keys():
-        x = idxs_dict[label]
+    class_to_shards = {}
+    for label in class_to_sample_ids.keys():
+        x = class_to_sample_ids[label]
         random.shuffle(x)
 
         """x = np.array(x[:usable])
@@ -352,48 +334,49 @@ def noniid(dataset, num_users, shard_per_user, shard_size, num_classes, seed, sa
         x = list(x)
 
         # assign the leftovers to each shard until none left.
-        for i, idx in enumerate(leftover):
-            x[i] = np.concatenate([x[i], [idx]])
+        for i, idx in enumerate(leftover): x[i] = np.concatenate([x[i], [idx]])
 
-        idxs_shards[label] = x  # label to shards (content of each shards) mapping
+        class_to_shards[label] = x  # label to shards (content of each shard) mapping
 
-    if len(rand_set_all) == 0:  # create a user-to-shard mapping
-        rand_set_all = list(range(num_classes)) * int(num_users*shard_per_user/num_classes)  # 2-D matrix representing all shards
-        random.shuffle(rand_set_all)
-        rand_set_all = np.array(rand_set_all).reshape((num_users, -1))
-        """for i in range(num_users):
-            classes = list(range(num_classes))
-            random.shuffle(classes)
-            rand_set_all.append(classes[:shard_per_user])  # no repeated class for a user"""
+    if user_to_classes is None:  # create a user-to-shard mapping
+        success = False
+        n_attempt = 99
+        while not success:
+            n_attempt += 1
+            user_to_classes = list(range(num_classes)) * shard_per_class  # 2-D matrix representing all shards
+            random.shuffle(user_to_classes)
+            user_to_classes = np.array(user_to_classes).reshape((num_users, -1))
 
-    overlap = False
-    # divide and assign
-    for i in range(num_users):
-        rand_set_label = rand_set_all[i]
-        rand_set = []
-        for label in rand_set_label:  # label of each assigned shard
-            if len(idxs_shards[label]) == 0:
-                overlap = True
-                print('insufficient data for sharding')
-                break
-            idx = np.random.choice(len(idxs_shards[label]), replace=False)  # take a shard from that class, no replacement
-            rand_set.append(idxs_shards[label].pop(idx))  # no replacement
-        if overlap is True:
-            break
-        dict_users[i] = np.concatenate(rand_set)  # combine and flatten the shards
+            # check if there is repeated class for a user
+            success = check_repeat(user_to_classes)
+            if n_attempt == 100:
+                success = True
+                print(
+                    "Fail to ensure no repeated class for all users!"
+                )
 
-    if overlap is True:  # give up using shard, just sample with repetition for each class
-        for i in range(num_users):
-            rand_set_label = rand_set_all[i]
-            rand_set = []
-            for label in rand_set_label:  # label of each assigned class
-                shard_size = int(len(idxs_dict[label])/shard_per_class)
-                rand_set.append(random.sample(idxs_dict[label], shard_size))
-            dict_users[i] = np.concatenate(rand_set)
+    # assign
+    for uid in range(num_users):
+        classes_uid = user_to_classes[uid]
+        uid_to_shards = []
+        for _class in classes_uid:  # label of each assigned shard
+            if len(class_to_shards[_class]) == 0:
+                raise ValueError("Insufficient data for sharding!")
+            sid = np.random.choice(len(class_to_shards[_class]))  # take a shard from that class
+            uid_to_shards.append(class_to_shards[_class].pop(sid))  # no replacement
+        dict_users[uid] = list(np.concatenate(uid_to_shards))  # combine and flatten the shards
 
-    return dict_users, rand_set_all, overlap
+    return dict_users, user_to_classes
 
-def noniid_diff_size(dataset, num_users, shard_per_user, num_classes, rand_set_all=[]):
+def check_repeat(user_to_classes: np.ndarray):
+    num_users = user_to_classes.shape[0]
+    num_shards_per_user = user_to_classes.shape[1]
+    for uid in range(num_users):
+        if len(np.unique(user_to_classes[uid, :])) != num_shards_per_user: # repeat identified
+            return False
+    return True
+
+def noniid_diff_size(dataset, num_users, shard_per_user, num_classes, user_to_classes=[]):
     """
     non I.I.D parititioning of data over clients
     Sort the data by the digit label
@@ -443,14 +426,14 @@ def noniid_diff_size(dataset, num_users, shard_per_user, num_classes, rand_set_a
 
         idxs_dict[label] = x  # label to shards (content of each shards) mapping
 
-    if len(rand_set_all) == 0:  # create a user-to-shard mapping
-        rand_set_all = list(range(shard_per_class*num_classes))
-        random.shuffle(rand_set_all)
-        rand_set_all = np.array(rand_set_all).reshape((num_users, -1))
+    if len(user_to_classes) == 0:  # create a user-to-shard mapping
+        user_to_classes = list(range(shard_per_class*num_classes))
+        random.shuffle(user_to_classes)
+        user_to_classes = np.array(user_to_classes).reshape((num_users, -1))
 
     # divide and assign
     for i in range(num_users):
-        rand_set_shards = rand_set_all[i]
+        rand_set_shards = user_to_classes[i]
         rand_set = []
         for shard in rand_set_shards:
             label = int(np.floor(shard/shard_per_class))
@@ -463,7 +446,7 @@ def noniid_diff_size(dataset, num_users, shard_per_user, num_classes, rand_set_a
         sizes.append(len(dict_users[i]))
     print(sizes)
 
-    return dict_users, rand_set_all
+    return dict_users, user_to_classes
 
 
 
@@ -509,17 +492,17 @@ def read_data(train_data_dir, test_data_dir):
     return clients, groups, train_data, test_data
 
 class DatasetSplit(Dataset):
-    def __init__(self, dataset, idxs, name=None):
+    def __init__(self, dataset: Dataset, sample_ids: List[int], name=None):
         self.dataset = dataset
-        self.idxs = list(idxs)
+        self.sample_ids = sample_ids
         self.name = name
 
     def __len__(self):
-        return len(self.idxs)
+        return len(self.sample_ids)
 
     def __getitem__(self, item):
         if self.name is None:
-            image, label = self.dataset[self.idxs[item]]
+            image, label = self.dataset[self.sample_ids[item]]
         elif 'femnist' in self.name:
             image = torch.reshape(torch.tensor(self.dataset['x'][item]), (1, 28, 28))
             label = torch.tensor(self.dataset['y'][item])
@@ -527,12 +510,12 @@ class DatasetSplit(Dataset):
             image = self.dataset['x'][item]
             label = self.dataset['y'][item]
         elif 'harass' in self.name:
-            return self.dataset[self.idxs[item]]
+            return self.dataset[self.sample_ids[item]]
         else:
-            image, label = self.dataset[self.idxs[item]]
+            image, label = self.dataset[self.sample_ids[item]]
         return image, label
 
-class DatasetSplit2Cuda(Dataset):
+class DatasetSplit2Device(Dataset):
     def __init__(self, d_split: DatasetSplit, device='cpu'):
         assert d_split.name == None # only CIFAR10/CIFAR100/MNIST are supported for now
 
@@ -546,7 +529,7 @@ class DatasetSplit2Cuda(Dataset):
         return self.images[item], self.labels[item]
 
     def move_to_device(self, d_split: DatasetSplit, device):
-        image_and_label = [d_split.dataset[d_split.idxs[i]] for i in range(len(d_split))]
+        image_and_label = [d_split.dataset[d_split.sample_ids[i]] for i in range(len(d_split))]
         images = torch.stack([image for image, _ in image_and_label])
         labels = torch.stack([torch.tensor(label) for _, label in image_and_label])
 
@@ -605,7 +588,7 @@ class Triage(Dataset):
     def __len__(self):
         return self.len
 
-def noniid_triage_2class(dataset, num_users, shard_per_user, num_classes, rand_set_all=[], testb=False):
+def noniid_triage_2class(dataset, num_users, shard_per_user, num_classes, user_to_classes=[], testb=False):
     """
     Sample non-I.I.D client data from MNIST dataset
     :param dataset:
@@ -656,8 +639,8 @@ def noniid_triage_2class(dataset, num_users, shard_per_user, num_classes, rand_s
 
         idxs_dict[label] = x  # label to shards (content of each shards) mapping
 
-    if len(rand_set_all) == 0:
-        rand_set_all = []
+    if len(user_to_classes) == 0:
+        user_to_classes = []
         for user in range(num_users):
             shards = []
             if user < np.floor(num_users / 2):
@@ -669,17 +652,17 @@ def noniid_triage_2class(dataset, num_users, shard_per_user, num_classes, rand_s
                 for i in range(shard_per_user - 1):
                     shards.append(0)
             random.shuffle(shards)
-            rand_set_all.append(shards)
-        random.shuffle(rand_set_all)
+            user_to_classes.append(shards)
+        random.shuffle(user_to_classes)
 
-    rand_set_all = np.array(rand_set_all)
+    user_to_classes = np.array(user_to_classes)
 
     # divide and assign
     for i in range(num_users):
         if repeat > 1:
-            rand_set_label = list(rand_set_all[i]) * repeat  # more shards from each assigned class
+            rand_set_label = list(user_to_classes[i]) * repeat  # more shards from each assigned class
         else:
-            rand_set_label = rand_set_all[i]
+            rand_set_label = user_to_classes[i]
         rand_set = []
         for label in rand_set_label:  # label of each assigned shard
             idx = np.random.choice(len(idxs_dict[label]), replace=False)  # take a shard from that class, no replacement for the inner loop
@@ -689,4 +672,4 @@ def noniid_triage_2class(dataset, num_users, shard_per_user, num_classes, rand_s
                 rand_set.append(idxs_dict[label].pop(idx))  # no replacement for the outer loop
         dict_users[i] = np.concatenate(rand_set)  # combine and flatten the shards
 
-    return dict_users, rand_set_all
+    return dict_users, user_to_classes

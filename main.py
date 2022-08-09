@@ -54,7 +54,7 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
 
 
     # Init Dataloaders
-    train_dataloaders, test_dataloaders, _ = prepare_dataloaders(args)
+    train_dataloaders, test_dataloaders = prepare_dataloaders(args)
 
 
     # Init model
