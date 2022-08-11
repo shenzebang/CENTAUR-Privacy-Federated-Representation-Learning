@@ -108,6 +108,13 @@ def args_parser():
         help="Enable data augmentation for vision tasks",
     )
 
+    parser.add_argument(
+        "--data_augmentation_multiplicity",
+        type=int,
+        default=16,
+    )
+
+
     # model configuration
     parser.add_argument('--model', type=str, default='mlp', help='model name', choices=['mlp', 'cnn', 'resnet'])
     parser.add_argument('--kernel_num', type=int, default=9, help='number of each kind of kernel')

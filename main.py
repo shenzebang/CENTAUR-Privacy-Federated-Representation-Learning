@@ -133,6 +133,8 @@ if __name__ == '__main__':
 
     n_gpus = set_cuda(args)
 
+    check_args(args)
+
     if args.use_ray and n_gpus > 0:
         ray.init(num_gpus=n_gpus, log_to_driver=False)
     '''

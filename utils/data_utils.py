@@ -49,44 +49,62 @@ def get_dataset(dataset_name, train=True, transform=None):
     return dataset
 
 
-def prepare_dataloaders(args, device='cpu'):
-    if args.iid:
-        sample_method = 'iid_'
-    else:
-        sample_method = ''
-
+def prepare_dataloaders(args):
     num_users_orig = args.num_users
-
     ####################################################################################################################
     ###########################    CIFAR and MNIST   ###################################################################
     ####################################################################################################################
     if 'cifar' in args.dataset or args.dataset == 'mnist':
-        dataset_train, dataset_test, dict_users_train, dict_users_test, dict_users_class = get_data(args)
-        if args.model_dir != 'DoNotSave':
-            model_save_dir = args.model_dir + '/' + sample_method + args.dataset + '_' + args.arc + '_' + args.alg \
-                             + '_' + str(args.num_users) + '_' + str(args.shard_size) + '_' + str(args.shard_per_user) + '_' \
-                             + str(args.epsilon) + '_' + str(args.aggr)
-            os.makedirs(model_save_dir, exist_ok=True)
-            dict_save_path = model_save_dir + '/' + 'user_data_dict.npy'
-            np.save(dict_save_path, (dict_users_train, dict_users_class))
 
-        lens = []
-        for idx in dict_users_train.keys():
-            lens.append(len(dict_users_train[idx]))
+        ground_dataset_train, ground_dataset_test, dict_users_train, dict_users_test, dict_users_class = get_data(args)
 
-        for idx in dict_users_train.keys():
-            np.random.shuffle(dict_users_train[idx])
+
+        for idx in dict_users_train.keys(): np.random.shuffle(dict_users_train[idx])
+
+        if args.data_augmentation: # use DeepMind data augmentation
+            '''
+                In DP setting, directly add data augmentation to the training procedure deteriorates the utility.
+                If "args.data_augmentation" is set to True, we will implement data augmentation as described in 
+                the DeepMind paper. 
+            '''
+            print(
+                "[ Using data augmentation implementation as described in the DeepMind paper! ]"
+            )
+
+            # Configure the transform that we want to use for training
+            if args.dataset == 'cifar10':
+                transform_multiplicity = trans_cifar10_train
+            elif args.dataset == 'cifar100':
+                transform_multiplicity = trans_cifar100_train
+            else:
+                raise NotImplementedError
+        else:
+            args.data_augmentation_multiplicity = 0
+            # Configure the transform that we want to use
+            if args.dataset == 'cifar10':
+                transform_multiplicity = trans_cifar10_val
+            elif args.dataset == 'cifar100':
+                transform_multiplicity = trans_cifar100_val
+            else:
+                raise NotImplementedError
+
+        # Wrap DatasetSplit with DatasetMultiplicity to produce multiple augmented images from a single image
+        make_dataset = lambda _dataset_train, _dict_users_train_uid: \
+            DatasetMultiplicity(
+                DatasetSplit(_dataset_train, _dict_users_train_uid),
+                transform_multiplicity,
+                args.data_augmentation_multiplicity
+            )
 
         train_dataloaders = []
         train_batch_size_too_large = False
         for uid in range(args.num_users):
-            dataset_train_uid = DatasetSplit(dataset_train, dict_users_train[uid])
-            dataset_train_uid = DatasetSplit2Device(dataset_train_uid, device)
+            dataset_train_uid = make_dataset(ground_dataset_train, dict_users_train[uid])
             batch_size = min(args.batch_size, len(dataset_train_uid))
             train_batch_size_too_large = False if args.batch_size <= len(dataset_train_uid) and not train_batch_size_too_large else True
             train_dataloaders.append(DataLoader(dataset_train_uid,
                                         batch_size=batch_size,
-                                        num_workers=1,
+                                        num_workers=0,
                                         pin_memory=True,
                                         shuffle=True
                                         ))
@@ -95,15 +113,30 @@ def prepare_dataloaders(args, device='cpu'):
                 f"The train batch size is larger than the size of the local training dataset."
             )
 
+        # Configure the transform that we want to use for testing
+        if args.dataset == 'cifar10':
+            transform_test = trans_cifar10_val
+        elif args.dataset == 'cifar100':
+            transform_test = trans_cifar100_val
+        else:
+            raise NotImplementedError
+
+        make_dataset = lambda _dataset_train, _dict_users_train_uid: \
+            DatasetMultiplicity(
+                DatasetSplit(_dataset_train, _dict_users_train_uid),
+                transform_test,
+                0
+            )
+
         test_dataloaders = []
         test_batch_size_too_large = False
         for uid in range(args.num_users):
-            dataset_test_uid = DatasetSplit(dataset_test, dict_users_test[uid])
+            dataset_test_uid = make_dataset(ground_dataset_test, dict_users_test[uid])
             batch_size = min(args.test_batch_size, len(dataset_test_uid))
             test_batch_size_too_large = False if args.batch_size <= len(dataset_test_uid) and not test_batch_size_too_large else True
             test_dataloaders.append(DataLoader(dataset_test_uid,
                                 batch_size=batch_size,
-                                num_workers=1,
+                                num_workers=0,
                                 pin_memory=True,
                                 shuffle=False
                             ))
@@ -204,10 +237,11 @@ def prepare_dataloaders(args, device='cpu'):
 
 
 def get_data(args, tokenizer=None):
+    # The "dataset.transform" will be set when creating the dataloader from the dataset
     with FileLock(os.path.expanduser("~/.data.lock")):
         if args.dataset == 'mnist':
-            dataset_train = datasets.MNIST('~/data/mnist/', train=True, download=True, transform=trans_mnist)
-            dataset_test = datasets.MNIST('~/data/mnist/', train=False, download=True, transform=trans_mnist)
+            dataset_train = datasets.MNIST('~/data/mnist/', train=True, download=True)
+            dataset_test = datasets.MNIST('~/data/mnist/', train=False, download=True)
             # sample users
             if args.iid:
                 print('iid')
@@ -217,9 +251,8 @@ def get_data(args, tokenizer=None):
                 dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var)
                 dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var, user_to_classes=user_to_classes)
         elif args.dataset == 'cifar10':
-            tran_train = trans_cifar10_train if args.data_augmentation else trans_cifar10_val
-            dataset_train = datasets.CIFAR10('~/data/cifar10', train=True, download=True, transform=tran_train)
-            dataset_test = datasets.CIFAR10('~/data/cifar10', train=False, download=True, transform=trans_cifar10_val)
+            dataset_train = datasets.CIFAR10('~/data/cifar10', train=True, download=True)
+            dataset_test = datasets.CIFAR10('~/data/cifar10', train=False, download=True)
             if args.iid:
                 dict_users_train = iid(dataset_train, args.num_users)
                 dict_users_test = iid(dataset_test, args.num_users)
@@ -227,9 +260,8 @@ def get_data(args, tokenizer=None):
                 dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var)
                 dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var, user_to_classes=user_to_classes)
         elif args.dataset == 'cifar100':
-            tran_train = trans_cifar100_train if args.data_augmentation else trans_cifar100_val
-            dataset_train = datasets.CIFAR100('~/data/cifar100', train=True, download=True, transform=tran_train)
-            dataset_test = datasets.CIFAR100('~/data/cifar100', train=False, download=True, transform=trans_cifar100_val)
+            dataset_train = datasets.CIFAR100('~/data/cifar100', train=True, download=True)
+            dataset_test = datasets.CIFAR100('~/data/cifar100', train=False, download=True)
             if args.iid:
                 dict_users_train = iid(dataset_train, args.num_users)
                 dict_users_test = iid(dataset_test, args.num_users)
@@ -535,6 +567,34 @@ class DatasetSplit2Device(Dataset):
 
         return images.to(device), labels.to(device)
 
+class DatasetMultiplicity(Dataset):
+    def __init__(self, d_split: DatasetSplit, transform, multiplicity: int = 0):
+        assert d_split.name == None  # only CIFAR10/CIFAR100/MNIST are supported for now
+        self.d_split = d_split
+        self.transform = transform
+        self.multiplicity = multiplicity
+        self._disable_multiplicity = False
+
+    def __len__(self):
+        return len(self.d_split)
+
+    def __getitem__(self, item):
+        # assume that the original dataset (CIFAR10/CIFAR100/MNIST) performs no transform!
+        img, target = self.d_split[item]
+
+        if not self._disable_multiplicity and self.multiplicity > 1:
+            # create multiple images from a single raw image with data augmentation
+            imgs = torch.stack([self.transform(img) for _ in range(self.multiplicity)], dim=0)
+            targets = torch.tensor(target).repeat(self.multiplicity)
+            return imgs, targets
+        else:
+            return self.transform(img), torch.tensor(target)
+
+    def disable_multiplicity(self):
+        self._disable_multiplicity = True
+
+    def enable_multiplicity(self):
+        self._disable_multiplicity = False
 
 class Triage(Dataset):
     def __init__(self, dataframe, tokenizer, max_len):

@@ -8,8 +8,9 @@ args=(main.py
         --shard_per_user 2
         --num_classes 10
         #  experiment configuration
-        #      --data_augmentation
-        --epochs 500
+        --data_augmentation
+        --data_augmentation_multiplicity 16
+        --epochs 300
         --seed 1
         --num_users 100
         #  DP configuration
@@ -21,11 +22,11 @@ args=(main.py
         #  backend configuration
         --gpu 0-1-2-3
         --use_ray
-        --ray_gpu_fraction 0.3
+        --ray_gpu_fraction .5
         #  test configuration
         #  train configuration
         --batch_size 4000
-        --MAX_PHYSICAL_BATCH_SIZE 100
+        --MAX_PHYSICAL_BATCH_SIZE 8
         --local_ep 1
         # --verbose
         # algorithm specific configuration

@@ -56,10 +56,11 @@ class Client:
             ) as memory_safe_data_loader:
                 for rep_epoch in range(self.args.local_ep):
                     for _batch_idx, (data, target) in enumerate(memory_safe_data_loader):
-                        data, target = data.to(self.device), target.to(self.device)
+                        data, target = flat_multiplicty_data(data.to(self.device), target.to(self.device))
                         output = model(data)
                         loss = self.criterion(output, target)
                         loss.backward()
+                        aggregate_grad_sample(model, self.args.data_augmentation_multiplicity)
                         optimizer.step()
                         optimizer.zero_grad()
                         model.zero_grad()
@@ -72,7 +73,7 @@ class Client:
         else:
             for rep_epoch in range(self.args.local_ep):
                 for _batch_idx, (data, target) in enumerate(train_loader):
-                    data, target = data.to(self.device), target.to(self.device)
+                    data, target = flat_multiplicty_data(data.to(self.device), target.to(self.device))
                     output = model(data)
                     loss = self.criterion(output, target)
                     loss.backward()
@@ -107,9 +108,10 @@ class Client:
 
         losses = []
         top1_acc = []
+        self.train_dataloader.dataset.disable_multiplicity()
         for head_epoch in range(self.args.local_head_ep):
             for _batch_idx, (data, target) in enumerate(self.train_dataloader):
-                data, target = data.to(self.device), target.to(self.device)
+                data, target = flat_multiplicty_data(data.to(self.device), target.to(self.device))
                 output = self.model(data)
                 loss = self.criterion(output, target)
                 loss.backward()
@@ -121,7 +123,7 @@ class Client:
                 labels = target.detach().cpu().numpy()
                 acc = accuracy(preds, labels)
                 top1_acc.append(acc)
-
+        self.train_dataloader.dataset.enable_multiplicity()
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
     def test(self):

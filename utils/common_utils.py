@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import random
-from opacus import PrivacyEngine
+from opacus import PrivacyEngine, GradSampleModule
 from opacus.accountants.utils import get_noise_multiplier
 from torch.utils.data import DataLoader
 import torch.nn as nn
@@ -152,3 +152,37 @@ class CudaMemoryPrinter:
             f"{self.idx}. {(total_memory - current_memory)/1024**2}"
         )
         self.idx += 1
+
+
+def aggregate_grad_sample(model: GradSampleModule, n_multiplicity: int):
+    component_modules = model._module._modules
+    for cm_key in component_modules.keys():
+        params = component_modules[cm_key]._parameters
+        if len(params) != 0:
+        # This is a trainable module. If len is 0, this is not trainable, .e.g. pooling layer or dropout layer
+            for f_key in params.keys():
+                # TODO: make sure there is no BUG.
+                if params[f_key].grad is not None and hasattr(params[f_key], "grad_sample"):
+                # requires_grad is True! Else, this parameter is not to be updated
+                    grad_sample = params[f_key].grad_sample
+                    grad_sample = grad_sample.view(-1, n_multiplicity, *grad_sample.shape[1:])
+                    params[f_key].grad_sample = torch.mean(grad_sample, dim=1) # 1 is the multiplicity dimension.
+
+def flat_multiplicty_data(data: torch.Tensor, target: torch.Tensor):
+    if len(data.shape) == 5:
+        data = data.view(data.shape[0] * data.shape[1], *data.shape[2:])
+        target = target.view(target.shape[0] * target.shape[1], *target.shape[2:])
+        return data, target
+    elif len(data.shape) == 4 or len(data.shape) == 3:
+        return data, target
+    else:
+        raise ValueError(
+            "data.shape should be 5 (data augmentation with multiplicity), 4 (batch), or 3 (single)!"
+        )
+
+def check_args(args):
+    '''
+        Check the args to prevent undesired settings
+    '''
+    if args.data_augmentation is False and args.data_augmentation_multiplicity > 1:
+        raise ValueError("No data augmentation is performed, but data augmentation is set larger than 1.")
