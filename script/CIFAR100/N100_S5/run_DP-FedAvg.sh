@@ -26,7 +26,7 @@ args=(main.py
         #  test configuration
         #  train configuration
         --batch_size 4000
-        --MAX_PHYSICAL_BATCH_SIZE 256
+        --MAX_PHYSICAL_BATCH_SIZE 64
         --local_ep 1
         # --verbose
         # algorithm specific configuration
