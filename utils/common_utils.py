@@ -155,18 +155,20 @@ class CudaMemoryPrinter:
 
 
 def aggregate_grad_sample(model: GradSampleModule, n_multiplicity: int):
-    component_modules = model._module._modules
-    for cm_key in component_modules.keys():
-        params = component_modules[cm_key]._parameters
-        if len(params) != 0:
-        # This is a trainable module. If len is 0, this is not trainable, .e.g. pooling layer or dropout layer
-            for f_key in params.keys():
-                # TODO: make sure there is no BUG.
-                if params[f_key].grad is not None and hasattr(params[f_key], "grad_sample"):
-                # requires_grad is True! Else, this parameter is not to be updated
-                    grad_sample = params[f_key].grad_sample
-                    grad_sample = grad_sample.view(-1, n_multiplicity, *grad_sample.shape[1:])
-                    params[f_key].grad_sample = torch.mean(grad_sample, dim=1) # 1 is the multiplicity dimension.
+    if n_multiplicity > 1:
+    # A single image produces multiple samples with data augmentation. Average gradients from a single image.
+        component_modules = model._module._modules
+        for cm_key in component_modules.keys():
+            params = component_modules[cm_key]._parameters
+            if len(params) != 0:
+            # This is a trainable module. If len is 0, this is not trainable, .e.g. pooling layer or dropout layer
+                for f_key in params.keys():
+                    # TODO: make sure there is no BUG.
+                    if params[f_key].grad is not None and hasattr(params[f_key], "grad_sample"):
+                    # requires_grad is True! Else, this parameter is not to be updated
+                        grad_sample = params[f_key].grad_sample
+                        grad_sample = grad_sample.view(-1, n_multiplicity, *grad_sample.shape[1:])
+                        params[f_key].grad_sample = torch.mean(grad_sample, dim=1) # 1 is the multiplicity dimension.
 
 def flat_multiplicty_data(data: torch.Tensor, target: torch.Tensor):
     if len(data.shape) == 5:
@@ -185,4 +187,8 @@ def check_args(args):
         Check the args to prevent undesired settings
     '''
     if args.data_augmentation is False and args.data_augmentation_multiplicity > 1:
-        raise ValueError("No data augmentation is performed, but data augmentation is set larger than 1.")
+        print(
+            "WARNING: No data augmentation is performed, but data augmentation multiplicity is set larger than 1!",
+            "Automatically set the multiplicity to 0."
+        )
+        args.data_augmentation_multiplicity = 0

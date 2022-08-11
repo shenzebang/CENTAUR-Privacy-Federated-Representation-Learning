@@ -74,7 +74,7 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
                 f"Load checkpoint (model_state) from file {checkpoint}."
             )
 
-    # get the representation keys
+    # Init representation keys
     representation_keys = get_representation_keys(args, global_model)
 
     # Init Clients
@@ -82,18 +82,7 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
                enumerate(zip(train_dataloaders, test_dataloaders))]
 
     # Init Server
-    if args.n_gpus > 0 and args.use_ray:
-        RemoteWorker = ray.remote(num_gpus=args.ray_gpu_fraction)(Worker)
-        n_remote_workers = int(1 / args.ray_gpu_fraction) * args.n_gpus
-        print(
-            f"[ Creating {n_remote_workers} remote workers altogether. ]"
-        )
-        remote_workers = [RemoteWorker.remote(args.n_gpus, wid) for wid in range(n_remote_workers)]
-    else:
-        print(
-            f"[ No remote workers is created. Clients are evaluated sequentially. ]"
-        )
-        remote_workers = None
+    remote_workers = create_remote_workers(args) # create remote workers with ray backend
 
     server = Server(args, global_model, representation_keys, clients, remote_workers)
 

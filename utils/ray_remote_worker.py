@@ -14,10 +14,24 @@ class Worker:
 
         for client, PE in zip(clients, PEs):
             result.append(client.step(PE))
-            if self.wid % self.n_gpus == 0:
-                torch.cuda.empty_cache()
 
+        # torch.cuda.empty_cache()
         return result
+
+def create_remote_workers(args):
+    if args.n_gpus > 0 and args.use_ray:
+        RemoteWorker = ray.remote(num_gpus=args.ray_gpu_fraction)(Worker)
+        n_remote_workers = int(1 / args.ray_gpu_fraction) * args.n_gpus
+        print(
+            f"[ Creating {n_remote_workers} remote workers altogether. ]"
+        )
+        remote_workers = [RemoteWorker.remote(args.n_gpus, wid) for wid in range(n_remote_workers)]
+    else:
+        print(
+            f"[ No remote workers is created. Clients are evaluated sequentially. ]"
+        )
+        remote_workers = None
+    return remote_workers
 
 def compute_with_remote_workers(remote_workers, clients, PEs):
     if remote_workers is not None:

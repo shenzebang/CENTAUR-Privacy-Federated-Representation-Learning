@@ -79,7 +79,6 @@ def prepare_dataloaders(args):
             else:
                 raise NotImplementedError
         else:
-            args.data_augmentation_multiplicity = 0
             # Configure the transform that we want to use
             if args.dataset == 'cifar10':
                 transform_multiplicity = trans_cifar10_val
@@ -87,6 +86,23 @@ def prepare_dataloaders(args):
                 transform_multiplicity = trans_cifar100_val
             else:
                 raise NotImplementedError
+
+            print(
+                "Since there is no data augmentation, pre-process the dataset to improve the efficiency."
+            )
+            # create a tensordataset
+            iter_ground_dataset_train = iter(ground_dataset_train)
+            imgs = []
+            targets = []
+            for img, target in iter_ground_dataset_train:
+                imgs.append(transform_multiplicity(img))
+                targets.append(target)
+
+            imgs = torch.stack(imgs, dim=0)
+            targets = torch.tensor(targets)
+            ground_dataset_train = torch.utils.data.TensorDataset(imgs, targets)
+            transform_multiplicity = None # disable transform_multiplicity since all data points have been pre-processed
+
 
         # Wrap DatasetSplit with DatasetMultiplicity to produce multiple augmented images from a single image
         make_dataset = lambda _dataset_train, _dict_users_train_uid: \
@@ -121,9 +137,23 @@ def prepare_dataloaders(args):
         else:
             raise NotImplementedError
 
-        make_dataset = lambda _dataset_train, _dict_users_train_uid: \
+
+        # Since there is no data augmentation, pre-process the dataset to improve the efficiency.
+        iter_ground_dataset_test = iter(ground_dataset_test)
+        imgs = []
+        targets = []
+        for img, target in iter_ground_dataset_test:
+            imgs.append(transform_test(img))
+            targets.append(target)
+
+        imgs = torch.stack(imgs, dim=0)
+        targets = torch.tensor(targets)
+        ground_dataset_test = torch.utils.data.TensorDataset(imgs, targets)
+        transform_test = None  # disable transform_multiplicity since all data points have been pre-processed
+
+        make_dataset = lambda _dataset, _dict_users_uid: \
             DatasetMultiplicity(
-                DatasetSplit(_dataset_train, _dict_users_train_uid),
+                DatasetSplit(_dataset, _dict_users_uid),
                 transform_test,
                 0
             )
@@ -588,7 +618,9 @@ class DatasetMultiplicity(Dataset):
             targets = torch.tensor(target).repeat(self.multiplicity)
             return imgs, targets
         else:
-            return self.transform(img), torch.tensor(target)
+            if self.transform is not None:
+                img, target = self.transform(img), torch.tensor(target)
+            return img, target
 
     def disable_multiplicity(self):
         self._disable_multiplicity = True
