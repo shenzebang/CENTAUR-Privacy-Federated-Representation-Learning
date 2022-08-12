@@ -154,8 +154,8 @@ class CudaMemoryPrinter:
         self.idx += 1
 
 
-def aggregate_grad_sample(model: GradSampleModule, n_multiplicity: int):
-    if n_multiplicity > 1:
+def aggregate_grad_sample(model, n_multiplicity: int):
+    if n_multiplicity > 1 and type(model) is GradSampleModule: # If type(model) is nn.Module, do nothing.
     # A single image produces multiple samples with data augmentation. Average gradients from a single image.
         component_modules = model._module._modules
         for cm_key in component_modules.keys():

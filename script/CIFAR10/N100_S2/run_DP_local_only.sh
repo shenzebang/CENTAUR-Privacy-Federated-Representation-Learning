@@ -1,4 +1,4 @@
-args=(baseline_centralized.py
+args=(--alg Local
     #  dataset configuration
     --dataset cifar10
     --num_classes 10
@@ -6,7 +6,9 @@ args=(baseline_centralized.py
     --model cnn
     #  experiment configuration
 #     --data_augmentation
-    --epochs 500
+    --epochs 1
+    --num_users 100
+    --shard_per_user 2
     --seed 1
     --n_runs 1
     #  DP configuration
@@ -16,15 +18,16 @@ args=(baseline_centralized.py
     --dp_clip 1
     #  save/load configuration
     #  backend configuration
-    --gpu 0
+    --gpu 0-1-2-3
+    --use_ray
+    --ray_gpu_fraction .3
     #  test configuration
-    --weight-decay 0
-    --momentum 0
     #  train configuration
-    --lr .1
+#     --verbose
+    --lr 1e-1
     --batch_size 4000
-    --MAX_PHYSICAL_BATCH_SIZE 200
-    --verbose
+    --local_ep 500
+    --momentum 0
     )
 
-python "${args[@]}"
+python main.py "${args[@]}"

@@ -10,6 +10,8 @@ from methods.DP_FedRep import Client as DP_FedRep_Client
 from methods.DP_FedRep import Server as DP_FedRep_Server
 from methods.PPSGD import Client as PPSGD_Client
 from methods.PPSGD import Server as PPSGD_Server
+from methods.DP_local_train import Client as DP_local_Client
+from methods.DP_local_train import Server as DP_local_Server
 from models.models import get_model
 from options import args_parser
 from utils.ray_remote_worker import *
@@ -20,6 +22,7 @@ ALGORITHMS = {
     "DP_FedAvg_ft"  : (DP_FedAvg_ft_Server, DP_FedAvg_ft_Client),
     "DP_FedRep"     : (DP_FedRep_Server, DP_FedRep_Client),
     "PPSGD"         : (PPSGD_Server, PPSGD_Client),
+    "Local"         : (DP_local_Server, DP_local_Client),
 }
 
 

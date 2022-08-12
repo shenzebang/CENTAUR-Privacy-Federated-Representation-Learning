@@ -15,7 +15,7 @@ class Worker:
         for client, PE in zip(clients, PEs):
             result.append(client.step(PE))
 
-        # torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
         return result
 
 def create_remote_workers(args):

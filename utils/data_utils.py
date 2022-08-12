@@ -50,16 +50,36 @@ def get_dataset(dataset_name, train=True, transform=None):
 
 
 def prepare_dataloaders(args):
+    '''
+        For now, only CIFAR10/CIFAR100 are implemented.
+    '''
+
+
     num_users_orig = args.num_users
+
+    # TODO: if args.num_users == 1, i.e. the centralized setting, the data allocation part can be simplified.
+
     ####################################################################################################################
     ###########################    CIFAR and MNIST   ###################################################################
     ####################################################################################################################
     if 'cifar' in args.dataset or args.dataset == 'mnist':
-
+        '''
+            1. Load the train/test datasets, create a user to data point map "dict_users_train"/"dict_users_test"
+        '''
         ground_dataset_train, ground_dataset_test, dict_users_train, dict_users_test, dict_users_class = get_data(args)
-
-
         for idx in dict_users_train.keys(): np.random.shuffle(dict_users_train[idx])
+
+        '''
+            2. Prepare the train dataloader
+        '''
+
+        # Configure the transform that we want to use for training
+        if args.dataset == 'cifar10':
+            transform_multiplicity = trans_cifar10_train if args.data_augmentation else trans_cifar10_val
+        elif args.dataset == 'cifar100':
+            transform_multiplicity = trans_cifar100_train if args.data_augmentation else trans_cifar100_val
+        else:
+            raise NotImplementedError
 
         if args.data_augmentation: # use DeepMind data augmentation
             '''
@@ -70,25 +90,9 @@ def prepare_dataloaders(args):
             print(
                 "[ Using data augmentation implementation as described in the DeepMind paper! ]"
             )
-
-            # Configure the transform that we want to use for training
-            if args.dataset == 'cifar10':
-                transform_multiplicity = trans_cifar10_train
-            elif args.dataset == 'cifar100':
-                transform_multiplicity = trans_cifar100_train
-            else:
-                raise NotImplementedError
         else:
-            # Configure the transform that we want to use
-            if args.dataset == 'cifar10':
-                transform_multiplicity = trans_cifar10_val
-            elif args.dataset == 'cifar100':
-                transform_multiplicity = trans_cifar100_val
-            else:
-                raise NotImplementedError
-
             print(
-                "Since there is no data augmentation, pre-process the dataset to improve the efficiency."
+                "[ Since there is no data augmentation, pre-process the dataset to improve the efficiency. ]"
             )
             # create a tensordataset
             iter_ground_dataset_train = iter(ground_dataset_train)
@@ -98,13 +102,14 @@ def prepare_dataloaders(args):
                 imgs.append(transform_multiplicity(img))
                 targets.append(target)
 
+            # replace "ground_dataset_train" with the preprocessed TensorDataset for efficiency
             imgs = torch.stack(imgs, dim=0)
             targets = torch.tensor(targets)
             ground_dataset_train = torch.utils.data.TensorDataset(imgs, targets)
             transform_multiplicity = None # disable transform_multiplicity since all data points have been pre-processed
 
 
-        # Wrap DatasetSplit with DatasetMultiplicity to produce multiple augmented images from a single image
+        # Wrap DatasetSplit with DatasetMultiplicity to produce multiple augmented images from a single image (if necessary)
         make_dataset = lambda _dataset_train, _dict_users_train_uid: \
             DatasetMultiplicity(
                 DatasetSplit(_dataset_train, _dict_users_train_uid),
@@ -126,9 +131,12 @@ def prepare_dataloaders(args):
                                         ))
         if train_batch_size_too_large:
             print(
-                f"The train batch size is larger than the size of the local training dataset."
+                f"[ The train batch size is larger than the size of the local training dataset. ]"
             )
 
+        '''
+            3. Prepare the test dataloader
+        '''
         # Configure the transform that we want to use for testing
         if args.dataset == 'cifar10':
             transform_test = trans_cifar10_val
@@ -159,11 +167,9 @@ def prepare_dataloaders(args):
             )
 
         test_dataloaders = []
-        test_batch_size_too_large = False
         for uid in range(args.num_users):
             dataset_test_uid = make_dataset(ground_dataset_test, dict_users_test[uid])
             batch_size = min(args.test_batch_size, len(dataset_test_uid))
-            test_batch_size_too_large = False if args.batch_size <= len(dataset_test_uid) and not test_batch_size_too_large else True
             test_dataloaders.append(DataLoader(dataset_test_uid,
                                 batch_size=batch_size,
                                 num_workers=0,
@@ -171,10 +177,6 @@ def prepare_dataloaders(args):
                                 shuffle=False
                             ))
 
-        if test_batch_size_too_large:
-            print(
-                f"The test batch size is larger than the size of the local testing dataset."
-            )
 
 
     ####################################################################################################################
