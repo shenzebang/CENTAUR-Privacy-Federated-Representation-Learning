@@ -72,6 +72,8 @@ def args_parser():
     parser.add_argument('--epochs', type=int, default=1, help="rounds of training")
     parser.add_argument('--frac', type=float, default=0.1, help="the fraction of clients: C")
     parser.add_argument('--local_ep', type=int, default=1, help="the number of local epochs: E")
+    parser.add_argument('--frac_participate', type=float, default=1.,
+                        help="fraction of clients that participates per sub-step")
     parser.add_argument('--local_epochs', type=int, default=1, help="the number of local epochs: E")
     parser.add_argument('--local_bs', type=int, default=10, help="local batch size: B")
     parser.add_argument('--lr', type=float, default=0.01, help="learning rate")
@@ -95,8 +97,6 @@ def args_parser():
     # Experiment configuration
     parser.add_argument('--alg', type=str, default='DP_FedRep', choices=['DP_FedRep', 'DP_FedAvg_ft', 'PPSGD', 'Local'])
     parser.add_argument('--num_users', type=int, default=100, help="number of users: n")
-    parser.add_argument('--num_users_under', type=int, default=1,
-                        help="number of underlying users (for centralized setting)")
     parser.add_argument('--shard_per_user', type=int, default=2, help="classes per user")
     parser.add_argument('--shard_size', type=int, default=200, help="size per shard")
 

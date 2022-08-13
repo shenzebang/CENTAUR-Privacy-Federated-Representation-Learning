@@ -74,7 +74,10 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
 
     # Init representation keys
     representation_keys = get_representation_keys(args, global_model)
-
+    print(
+        f"[ The representation keys are : ]",
+        f"{representation_keys}"
+    )
     # Init Clients
     clients = [Client(idx, args, representation_keys, traindlr, testdlr, global_model, device) for idx, (traindlr, testdlr) in
                enumerate(zip(train_dataloaders, test_dataloaders))]

@@ -1,9 +1,34 @@
 import warnings
 
+import torch
+
 from utils.common_utils import *
 from utils.ray_remote_worker import *
 import copy
 warnings.filterwarnings("ignore")
+
+class Results:
+    def __init__(self):
+        self.train_losses = []
+        self.train_accs = []
+        self.test_losses = []
+        self.test_accs = []
+
+    def add(self, result):
+        train_loss = result["train loss"]
+        train_acc = result["train acc"]
+        test_loss = result["test loss"]
+        test_acc = result["test acc"]
+        self.train_losses.append(train_loss)
+        self.train_accs.append(train_acc)
+        self.test_losses.append(test_loss)
+        self.test_accs.append(test_acc)
+
+    def mean(self):
+        return (torch.mean(torch.stack(self.train_losses)),
+                torch.mean(torch.stack(self.train_accs)),
+                torch.mean(torch.stack(self.test_losses)),
+                torch.mean(torch.stack(self.test_accs)))
 
 class Client:
     def __init__(self,
@@ -58,7 +83,7 @@ class Server:
         self.clients = clients
         self.remote_workers = remote_workers
 
-    def broadcast(self):
+    def broadcast(self, clients: List[Client]):
         raise NotImplementedError
 
     def aggregate(self, sds_client: List[OrderedDict]):
@@ -71,7 +96,7 @@ class Server:
         '''
         results = compute_with_remote_workers(self.remote_workers, clients)
 
-        result = {
+        result_dict = {
             "train loss": torch.mean(torch.stack([result["train loss"] for result in results])),
             "train acc": torch.mean(torch.stack([result["train acc"] for result in results])),
             "test loss": torch.mean(torch.stack([result["test loss"] for result in results])),
@@ -79,16 +104,13 @@ class Server:
             "sds": [result["sd"] for result in results],
             "PEs": [result["PE"] for result in results]
         }
-        return result
+        return result_dict
 
     def step(self, epoch: int):
         raise NotImplementedError
 
-    def report(self, epoch, results):
-        train_loss = results["train loss"]
-        train_acc = results["train acc"]
-        test_loss = results["test loss"]
-        test_acc = results["test acc"]
+    def report(self, epoch, results: Results):
+        train_loss, train_acc, test_loss, test_acc = results.mean()
         if not self.args.disable_dp:
             epsilon, best_alpha = self.clients[0].PE.accountant.get_privacy_spent(
                 delta=self.args.delta
@@ -112,5 +134,27 @@ class Server:
             print(f"Test Epoch: {epoch} \t Loss: {test_loss:.6f}"
                   f"\t Acc@1: {test_acc * 100:.6f} "
                   )
-        return results["train loss"], results["train acc"], results["test loss"], results["test acc"]
+        return train_loss, train_acc, test_loss, test_acc
+
+    def divide_into_subgroups(self):
+        if self.args.frac_participate < 1:
+            # i. Shuffle the clients
+            random.shuffle(self.clients)
+
+            # ii. split the clients into subgroups
+            num_sub_steps = int(1 / self.args.frac_participate)
+
+            user_per_sub_step = [int(self.args.num_users / num_sub_steps)] * num_sub_steps
+            for i in range(self.args.num_users % num_sub_steps):
+                user_per_sub_step[i] += 1
+
+            sub_step_users = []; p = 0
+            for sub_step, num_users in enumerate(user_per_sub_step):
+                sub_step_users.append(self.clients[p: p+num_users])
+                p += num_users
+
+            return sub_step_users
+
+        else:
+            return [self.clients]
 

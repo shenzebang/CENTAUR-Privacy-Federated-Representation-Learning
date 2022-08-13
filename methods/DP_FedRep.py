@@ -1,4 +1,5 @@
 import copy
+import random
 import warnings
 
 from opacus.utils.batch_memory_manager import wrap_data_loader
@@ -6,7 +7,7 @@ from torch import optim
 
 from utils.common_utils import *
 from utils.ray_remote_worker import *
-from methods.api import Server, Client
+from methods.api import Server, Client, Results
 warnings.filterwarnings("ignore")
 
 class ClientDPFedRep(Client):
@@ -106,7 +107,7 @@ class ClientDPFedRep(Client):
         train_loss, train_acc = self._train_representation()
 
         # return the accuracy and the updated representation
-        result = {
+        result_dict = {
             "train loss":   train_loss,
             "train acc":    train_acc,
             "test loss":    test_loss,
@@ -119,11 +120,11 @@ class ClientDPFedRep(Client):
             print(
                 f"Client {self.idx} finished."
             )
-        return result
+        return result_dict
 
 class ServerDPFedRep(Server):
-    def broadcast(self):
-        for client in self.clients:
+    def broadcast(self, clients):
+        for client in clients:
             sd_client_old = client.model.state_dict()
             client.model = copy.deepcopy(self.model)
             sd_client_new = client.model.state_dict()
@@ -145,17 +146,24 @@ class ServerDPFedRep(Server):
         self.model.load_state_dict(sd)
 
     def step(self, epoch: int):
-        # 1. Server broadcast the global model
-        self.broadcast()
-        # 2. Server orchestrates the clients to perform local updates
-        results = self.local_update(self.clients)
-        # This step is to ensure the compatibility with the ray backend.
-        for client, sd, PE in zip(self.clients, results["sds"], results["PEs"]):
-            client.model.load_state_dict(sd)
-            client.PE = PE
-        # 3. Server aggregate the local updates
-        self.aggregate(results["sds"])
+        '''
+            A single server step consists of 1/args.frac_participate sub-steps
+        '''
+        sub_step_users = self.divide_into_subgroups()
+        results_mega_step = Results()
+        for clients in sub_step_users:
+            # 1. Server broadcast the global model
+            self.broadcast(clients)
+            # 2. Server orchestrates the clients to perform local updates
+            results_dict_sub_step = self.local_update(clients)
+            # This step is to ensure the compatibility with the ray backend.
+            if self.args.use_ray:
+                for client, sd, PE in zip(clients, results_dict_sub_step["sds"], results_dict_sub_step["PEs"]):
+                    client.model.load_state_dict(sd)
+                    client.PE = PE
+            # 3. Server aggregate the local updates
+            self.aggregate(results_dict_sub_step["sds"])
+            results_mega_step.add(results_dict_sub_step)
 
-
-        return self.report(epoch, results)
+        return self.report(epoch, results_mega_step)
 

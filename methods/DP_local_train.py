@@ -3,7 +3,7 @@ import warnings
 from opacus.utils.batch_memory_manager import wrap_data_loader
 from torch import optim
 
-from methods.api import Server, Client
+from methods.api import Server, Client, Results
 from utils.common_utils import *
 from utils.ray_remote_worker import *
 
@@ -67,7 +67,7 @@ class ClientLocalOnly(Client):
         test_loss, test_acc = self.test(self.model)
 
         # return the accuracy and the updated representation
-        result = {
+        result_dict = {
             "train loss":   train_loss,
             "train acc":    train_acc,
             "test loss":    test_loss,
@@ -79,10 +79,10 @@ class ClientLocalOnly(Client):
             print(
                 f"Client {self.idx} finished."
             )
-        return result
+        return result_dict
 
 class ServerLocalOnly(Server):
-    def broadcast(self):
+    def broadcast(self, clients: List[Client]):
         '''
             Local training only. No broadcast step.
         '''
@@ -96,10 +96,8 @@ class ServerLocalOnly(Server):
 
     def step(self, epoch: int):
         # Server orchestrates the clients to perform local updates
-        results = self.local_update(self.clients)
-
-        del results["sds"]
-        torch.cuda.empty_cache()
+        results = Results()
+        results.add(self.local_update(self.clients))
 
         # return results
         return self.report(epoch, results)

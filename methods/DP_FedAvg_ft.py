@@ -6,7 +6,7 @@ from torch import optim
 
 from utils.common_utils import *
 from utils.ray_remote_worker import *
-from methods.api import Server, Client
+from methods.api import Server, Client, Results
 warnings.filterwarnings("ignore")
 
 class ClientDPFedAvgFT(Client):
@@ -113,7 +113,7 @@ class ClientDPFedAvgFT(Client):
         train_loss, train_acc = self._train()
 
         # return the accuracy and the updated representation
-        result = {
+        result_dict = {
             "train loss":   train_loss,
             "train acc":    train_acc,
             "test loss":    test_loss,
@@ -125,12 +125,12 @@ class ClientDPFedAvgFT(Client):
             print(
                 f"Client {self.idx} finished."
             )
-        return result
+        return result_dict
 
 class ServerDPFedAvgFT(Server):
 
-    def broadcast(self):
-        for client in self.clients:
+    def broadcast(self, clients: List[ClientDPFedAvgFT]):
+        for client in clients:
             client.model = copy.deepcopy(self.model)
 
     def aggregate(self, sds_client: List[OrderedDict]):
@@ -143,14 +143,21 @@ class ServerDPFedAvgFT(Server):
         self.model.load_state_dict(sd)
 
     def step(self, epoch: int):
-        # 1. Server broadcast the global model
-        self.broadcast()
-        # 2. Server orchestrates the clients to perform local updates
-        results = self.local_update(self.clients)
-        # This step is to ensure the compatibility with the ray backend.
-        for client, PE in zip(self.clients, results["PEs"]):
-            client.PE = PE
-        # 3. Server aggregate the local updates
-        self.aggregate(results["sds"])
+        '''
+            A single server step consists of 1/args.frac_participate sub-steps
+        '''
+        sub_step_users = self.divide_into_subgroups()
+        results_mega_step = Results()
+        for clients in sub_step_users:
+            # 1. Server broadcast the global model
+            self.broadcast(clients)
+            # 2. Server orchestrates the clients to perform local updates
+            results_dict_sub_step = self.local_update(clients)
+            # This step is to ensure the compatibility with the ray backend.
+            for client, PE in zip(clients, results_dict_sub_step["PEs"]):
+                client.PE = PE
+            # 3. Server aggregate the local updates
+            self.aggregate(results_dict_sub_step["sds"])
+            results_mega_step.add(results_dict_sub_step)
 
-        return self.report(epoch, results)
+        return self.report(epoch, results_mega_step)

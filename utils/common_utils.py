@@ -188,7 +188,14 @@ def check_args(args):
     '''
     if args.data_augmentation is False and args.data_augmentation_multiplicity > 1:
         print(
-            "[ WARNING: No data augmentation is performed, but data augmentation multiplicity is set larger than 1! ]\n",
+            "[ WARNING: No data augmentation is performed, but data augmentation multiplicity is set larger than 1! ]",
             "[ Automatically set the multiplicity to 0. ]"
         )
         args.data_augmentation_multiplicity = 0
+
+    if args.use_ray and args.frac_participate < 1:
+        print(
+            "[ WARNING: The is a bug in the partial participating case with ray backend  ]",
+            "[ Automatically set args.use_ray to False. ]"
+        )
+        args.use_ray = False
