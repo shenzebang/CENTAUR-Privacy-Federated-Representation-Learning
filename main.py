@@ -4,14 +4,11 @@ from torchsummary import summary
 
 from utils.common_utils import *
 from utils.data_utils import prepare_dataloaders
-from methods.DP_FedAvg_ft import Client as DP_FedAvg_ft_Client
-from methods.DP_FedAvg_ft import Server as DP_FedAvg_ft_Server
-from methods.DP_FedRep import Client as DP_FedRep_Client
-from methods.DP_FedRep import Server as DP_FedRep_Server
+from methods.DP_FedAvg_ft import ServerDPFedAvgFT, ClientDPFedAvgFT
+from methods.DP_FedRep import ServerDPFedRep, ClientDPFedRep
 from methods.PPSGD import Client as PPSGD_Client
 from methods.PPSGD import Server as PPSGD_Server
-from methods.DP_local_train import Client as DP_local_Client
-from methods.DP_local_train import Server as DP_local_Server
+from methods.DP_local_train import ServerLocalOnly, ClientLocalOnly
 from models.models import get_model
 from options import args_parser
 from utils.ray_remote_worker import *
@@ -19,10 +16,10 @@ from ray import tune
 
 
 ALGORITHMS = {
-    "DP_FedAvg_ft"  : (DP_FedAvg_ft_Server, DP_FedAvg_ft_Client),
-    "DP_FedRep"     : (DP_FedRep_Server, DP_FedRep_Client),
+    "DP_FedAvg_ft"  : (ServerDPFedAvgFT, ClientDPFedAvgFT),
+    "DP_FedRep"     : (ServerDPFedRep, ClientDPFedRep),
     "PPSGD"         : (PPSGD_Server, PPSGD_Client),
-    "Local"         : (DP_local_Server, DP_local_Client),
+    "Local"         : (ServerLocalOnly, ClientLocalOnly),
 }
 
 
@@ -53,8 +50,6 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
         f"[ Running Algorithm {args.alg}. ]"
     )
     (Server, Client) = ALGORITHMS[args.alg]
-
-
 
     # Init Dataloaders
     train_dataloaders, test_dataloaders = prepare_dataloaders(args)

@@ -188,7 +188,7 @@ def check_args(args):
     '''
     if args.data_augmentation is False and args.data_augmentation_multiplicity > 1:
         print(
-            "WARNING: No data augmentation is performed, but data augmentation multiplicity is set larger than 1!",
-            "Automatically set the multiplicity to 0."
+            "[ WARNING: No data augmentation is performed, but data augmentation multiplicity is set larger than 1! ]\n",
+            "[ Automatically set the multiplicity to 0. ]"
         )
         args.data_augmentation_multiplicity = 0

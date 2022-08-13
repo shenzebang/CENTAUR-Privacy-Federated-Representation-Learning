@@ -1,34 +1,15 @@
 import copy
 import warnings
 
-from opacus.utils.batch_memory_manager import BatchMemoryManager
+from opacus.utils.batch_memory_manager import wrap_data_loader
 from torch import optim
 
 from utils.common_utils import *
 from utils.ray_remote_worker import *
-
+from methods.api import Server, Client
 warnings.filterwarnings("ignore")
 
-class Client:
-    def __init__(self,
-                 idx: int,
-                 args,
-                 representation_keys: List[str],
-                 train_dataloader: DataLoader,
-                 test_dataloader: DataLoader,
-                 model: nn.Module,
-                 device: torch.device
-                 ):
-        self.idx = idx
-        self.args = args
-        self.model = copy.deepcopy(model)
-        self.representation_keys = representation_keys
-        self.train_dataloader = train_dataloader
-        self.test_dataloader = test_dataloader
-        self.device = device
-        self.criterion = nn.CrossEntropyLoss()
-
-
+class ClientDPFedAvgFT(Client):
     def _train(self, PE: PrivacyEngine):
         '''
             The privacy engine is maintained by the server to ensure the compatibility with ray backend
@@ -44,51 +25,35 @@ class Client:
                               )
         model, optimizer, train_loader = make_private(self.args, PE, self.model, optimizer, self.train_dataloader)
 
-
         losses = []
         top1_acc = []
 
         if PE is not None:
-            with BatchMemoryManager(
-                    data_loader=train_loader,
-                    max_physical_batch_size=self.args.MAX_PHYSICAL_BATCH_SIZE,
-                    optimizer=optimizer
-            ) as memory_safe_data_loader:
-                for rep_epoch in range(self.args.local_ep):
-                    for _batch_idx, (data, target) in enumerate(memory_safe_data_loader):
-                        data, target = flat_multiplicty_data(data.to(self.device), target.to(self.device))
-                        output = model(data)
-                        loss = self.criterion(output, target)
-                        loss.backward()
-                        aggregate_grad_sample(model, self.args.data_augmentation_multiplicity)
-                        optimizer.step()
-                        optimizer.zero_grad()
-                        model.zero_grad()
-                        losses.append(loss.item())
+            train_loader = wrap_data_loader(
+                data_loader=train_loader,
+                max_batch_size=self.args.MAX_PHYSICAL_BATCH_SIZE,
+                optimizer=optimizer
+            )
 
-                        preds = np.argmax(output.detach().cpu().numpy(), axis=1)
-                        labels = target.detach().cpu().numpy()
-                        acc = accuracy(preds, labels)
-                        top1_acc.append(acc)
-        else:
-            for rep_epoch in range(self.args.local_ep):
-                for _batch_idx, (data, target) in enumerate(train_loader):
-                    data, target = flat_multiplicty_data(data.to(self.device), target.to(self.device))
-                    output = model(data)
-                    loss = self.criterion(output, target)
-                    loss.backward()
-                    # No need to aggregate "grad_sample" since optimizer only uses "grad".
-                    optimizer.step()
-                    optimizer.zero_grad()
-                    losses.append(loss.item())
+        for rep_epoch in range(self.args.local_ep):
+            for _batch_idx, (data, target) in enumerate(train_loader):
+                data, target = flat_multiplicty_data(data.to(self.device), target.to(self.device))
+                output = model(data)
+                loss = self.criterion(output, target)
+                loss.backward()
+                aggregate_grad_sample(model, self.args.data_augmentation_multiplicity)
+                optimizer.step()
+                optimizer.zero_grad()
+                model.zero_grad()
+                losses.append(loss.item())
 
-                    preds = np.argmax(output.detach().cpu().numpy(), axis=1)
-                    labels = target.detach().cpu().numpy()
-                    acc = accuracy(preds, labels)
-                    top1_acc.append(acc)
+                preds = np.argmax(output.detach().cpu().numpy(), axis=1)
+                labels = target.detach().cpu().numpy()
+                acc = accuracy(preds, labels)
+                top1_acc.append(acc)
         # del optimizer
 
-        # Using PE to privitize the model will change the keys of model.state_dict()
+        # Using PE to privatize the model will change the keys of model.state_dict()
         # This subroutine restores the keys to the non-DP model
         self.model.load_state_dict(fix_DP_model_keys(self.args, model))
 
@@ -132,26 +97,6 @@ class Client:
         self.train_dataloader.dataset.enable_multiplicity()
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
-    def test(self, model_head: nn.Module):
-        model_head.eval()
-
-        with torch.autograd.no_grad():
-            losses = []
-            top1_acc = []
-
-            for _batch_idx, (data, target) in enumerate(self.test_dataloader):
-                data, target = data.to(self.device), target.to(self.device)
-                output = model_head(data)
-                loss = self.criterion(output, target)
-                losses.append(loss.item())
-
-                preds = np.argmax(output.detach().cpu().numpy(), axis=1)
-                labels = target.detach().cpu().numpy()
-                acc = accuracy(preds, labels)
-                top1_acc.append(acc)
-
-        return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
-
 
     def step(self, PE: PrivacyEngine):
         # 1. Fine tune the head of a copy
@@ -182,18 +127,7 @@ class Client:
             )
         return result
 
-class Server:
-    def __init__(self, args, model: nn.Module, representation_keys: List[str], clients: List[Client], remote_workers):
-        self.args = args
-        self.model = model
-        self.representation_keys = representation_keys
-        self.clients = clients
-        self.PEs = [None] * args.num_users
-        if not args.disable_dp:
-            self.PEs = [PrivacyEngine(secure_mode=args.secure_rng) for _ in range(args.num_users)]
-
-        self.remote_workers = remote_workers
-
+class ServerDPFedAvgFT(Server):
 
     def broadcast(self):
         for client in self.clients:
@@ -208,29 +142,11 @@ class Server:
             sd[key] = torch.mean(torch.stack([sd_client[key] for sd_client in sds_client], dim=0), dim=0)
         self.model.load_state_dict(sd)
 
-    def local_update(self):
-        '''
-            Server orchestrates the clients to perform local updates.
-            The current implementation did not use ray backend.
-        '''
-
-        results = compute_with_remote_workers(self.remote_workers, self.clients, self.PEs)
-
-        result = {
-            "train loss":   torch.mean(torch.stack([result["train loss"] for result in results])),
-            "train acc":    torch.mean(torch.stack([result["train acc"] for result in results])),
-            "test loss":    torch.mean(torch.stack([result["test loss"] for result in results])),
-            "test acc":     torch.mean(torch.stack([result["test acc"] for result in results])),
-            "sds":          [result["sd"] for result in results],
-            "PEs":          [result["PE"] for result in results]
-        }
-        return result
-
     def step(self, epoch: int):
         # 1. Server broadcast the global model
         self.broadcast()
         # 2. Server orchestrates the clients to perform local updates
-        results = self.local_update()
+        results = self.local_update(self.clients, self.PEs)
         # Update the PEs (mainly to update the privacy accountants)
         self.PEs = results["PEs"]
         # 3. Server aggregate the local updates
@@ -239,34 +155,4 @@ class Server:
         del results["sds"]
         torch.cuda.empty_cache()
 
-        train_loss = results["train loss"]
-        train_acc = results["train acc"]
-        test_loss = results["test loss"]
-        test_acc = results["test acc"]
-        if not self.args.disable_dp:
-            epsilon, best_alpha = self.PEs[0].accountant.get_privacy_spent(
-                delta=self.args.delta
-            )
-            print(
-                f"Train Epoch: {epoch} \t"
-                f"Loss: {train_loss:.6f} "
-                f"Acc@1: {train_acc * 100:.6f} "
-                f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
-            )
-            print(
-                f"Train Epoch: {epoch} \t"
-                f"Test loss: {test_loss:.6f} "
-                f"Test acc@1: {test_acc * 100:.6f} "
-                f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
-            )
-        else:
-            print(f"Train Epoch: {epoch} \t Loss: {train_loss:.6f}"
-                  f"\t Acc@1: {train_acc* 100:.6f} "
-                  )
-            print(f"Test Epoch: {epoch} \t Loss: {test_loss:.6f}"
-                  f"\t Acc@1: {test_acc * 100:.6f} "
-                  )
-
-
-        # return results
-        return results["train loss"], results["train acc"], results["test loss"], results["test acc"]
+        return self.report(epoch, results)

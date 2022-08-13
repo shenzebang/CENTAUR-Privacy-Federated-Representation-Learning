@@ -30,11 +30,11 @@ def create_remote_workers(args):
         print(
             f"[ No remote workers is created. Clients are evaluated sequentially. ]"
         )
-        remote_workers = None
+        remote_workers = []
     return remote_workers
 
 def compute_with_remote_workers(remote_workers, clients, PEs):
-    if remote_workers is not None:
+    if len(remote_workers) != 0:
         # Use remote workers to accelerate computation.
         num_remote_workers = len(remote_workers)
         num_clients = len(clients)
