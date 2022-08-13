@@ -10,7 +10,7 @@ from methods.api import Server, Client
 warnings.filterwarnings("ignore")
 
 class ClientDPFedRep(Client):
-    def _train_representation(self, PE: PrivacyEngine):
+    def _train_representation(self):
         '''
             The privacy engine is maintained by the server to ensure the compatibility with ray backend
         '''
@@ -23,13 +23,13 @@ class ClientDPFedRep(Client):
                               momentum=self.args.momentum,
                               weight_decay=self.args.weight_decay
                               )
-        model, optimizer, train_loader = make_private(self.args, PE, self.model, optimizer, self.train_dataloader)
+        model, optimizer, train_loader = make_private(self.args, self.PE, self.model, optimizer, self.train_dataloader)
 
 
         losses = []
         top1_acc = []
 
-        if PE is not None:
+        if self.PE is not None:
             train_loader = wrap_data_loader(
                     data_loader=train_loader,
                     max_batch_size=self.args.MAX_PHYSICAL_BATCH_SIZE,
@@ -94,7 +94,7 @@ class ClientDPFedRep(Client):
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
 
-    def step(self, PE: PrivacyEngine):
+    def step(self):
         # 1. Fine tune the head
         _, _ = self._train_head()
 
@@ -103,7 +103,7 @@ class ClientDPFedRep(Client):
         test_loss, test_acc = self.test(self.model)
 
         # 3. Update the representation
-        train_loss, train_acc = self._train_representation(PE)
+        train_loss, train_acc = self._train_representation()
 
         # return the accuracy and the updated representation
         result = {
@@ -112,7 +112,7 @@ class ClientDPFedRep(Client):
             "test loss":    test_loss,
             "test acc":     test_acc,
             "sd":           self.model.state_dict(),
-            "PE":           PE
+            "PE":           self.PE
         }
 
         if self.args.verbose:
@@ -148,12 +148,11 @@ class ServerDPFedRep(Server):
         # 1. Server broadcast the global model
         self.broadcast()
         # 2. Server orchestrates the clients to perform local updates
-        results = self.local_update(self.clients, self.PEs)
+        results = self.local_update(self.clients)
         # This step is to ensure the compatibility with the ray backend.
-        for client, sd in zip(self.clients, results["sds"]):
+        for client, sd, PE in zip(self.clients, results["sds"], results["PEs"]):
             client.model.load_state_dict(sd)
-        # Update the PEs (mainly to update the privacy accountants)
-        self.PEs = results["PEs"]
+            client.PE = PE
         # 3. Server aggregate the local updates
         self.aggregate(results["sds"])
 

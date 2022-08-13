@@ -9,11 +9,11 @@ class Worker:
         self.wid = wid
         self.n_gpus = n_gpus
 
-    def step(self, clients, PEs):
+    def step(self, clients):
         result = []
 
-        for client, PE in zip(clients, PEs):
-            result.append(client.step(PE))
+        for client in clients:
+            result.append(client.step())
 
         torch.cuda.empty_cache()
         return result
@@ -33,7 +33,7 @@ def create_remote_workers(args):
         remote_workers = []
     return remote_workers
 
-def compute_with_remote_workers(remote_workers, clients, PEs):
+def compute_with_remote_workers(remote_workers, clients):
     if len(remote_workers) != 0:
         # Use remote workers to accelerate computation.
         num_remote_workers = len(remote_workers)
@@ -52,13 +52,9 @@ def compute_with_remote_workers(remote_workers, clients, PEs):
         jobs_clients = {
             wid: None for wid in range(num_remote_workers)
         }
-        jobs_PEs = {
-            wid: None for wid in range(num_remote_workers)
-        }
         cid = 0 # client id
         for wid in range(num_remote_workers):
             jobs_clients[wid] = clients[cid: cid + n_clients_per_worker[wid]]
-            jobs_PEs[wid] = PEs[cid: cid + n_clients_per_worker[wid]]
             cid += n_clients_per_worker[wid]
             ###### Uncomment for the purpose of DEBUG
             # client_ids = [client.idx for client in jobs_clients[wid]]
@@ -67,7 +63,7 @@ def compute_with_remote_workers(remote_workers, clients, PEs):
             # )
             ###### Uncomment for the purpose of DEBUG
 
-        ray_job_ids = [remote_worker.step.remote(jobs_clients[wid], jobs_PEs[wid])
+        ray_job_ids = [remote_worker.step.remote(jobs_clients[wid])
                   for wid, remote_worker in enumerate(remote_workers)]
         # Calling remote functions only creates job ids. Use ray.get() to actually carry out these jobs.
         results = ray.get(ray_job_ids)
@@ -76,6 +72,6 @@ def compute_with_remote_workers(remote_workers, clients, PEs):
         results = list(itertools.chain.from_iterable(results))
     else:
         # No remote workers are available. Simply evaluate sequentially.
-        results = [client.step(PE) for client, PE in zip(clients, PEs)]
+        results = [client.step() for client in clients]
 
     return results

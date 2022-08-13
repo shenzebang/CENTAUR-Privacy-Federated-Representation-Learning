@@ -23,6 +23,9 @@ class Client:
         self.test_dataloader = test_dataloader
         self.device = device
         self.criterion = nn.CrossEntropyLoss()
+        self.PE = None
+        if not args.disable_dp:
+            self.PE = PrivacyEngine(secure_mode=args.secure_rng)
 
     def test(self, model_test: nn.Module):
         model_test.eval()
@@ -44,7 +47,7 @@ class Client:
 
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
-    def step(self, PE: PrivacyEngine):
+    def step(self):
         raise NotImplementedError
 
 class Server:
@@ -53,9 +56,6 @@ class Server:
         self.model = model
         self.representation_keys = representation_keys
         self.clients = clients
-        self.PEs = [None] * args.num_users
-        if not args.disable_dp:
-            self.PEs = [PrivacyEngine(secure_mode=args.secure_rng) for _ in range(args.num_users)]
         self.remote_workers = remote_workers
 
     def broadcast(self):
@@ -64,12 +64,12 @@ class Server:
     def aggregate(self, sds_client: List[OrderedDict]):
         raise NotImplementedError
 
-    def local_update(self, clients: List[Client], PEs: List[PrivacyEngine]):
+    def local_update(self, clients: List[Client]):
         '''
             Server orchestrates the clients to perform local updates.
             The current implementation did not use ray backend.
         '''
-        results = compute_with_remote_workers(self.remote_workers, clients, PEs)
+        results = compute_with_remote_workers(self.remote_workers, clients)
 
         result = {
             "train loss": torch.mean(torch.stack([result["train loss"] for result in results])),
@@ -90,7 +90,7 @@ class Server:
         test_loss = results["test loss"]
         test_acc = results["test acc"]
         if not self.args.disable_dp:
-            epsilon, best_alpha = self.PEs[0].accountant.get_privacy_spent(
+            epsilon, best_alpha = self.clients[0].PE.accountant.get_privacy_spent(
                 delta=self.args.delta
             )
             print(
