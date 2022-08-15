@@ -116,23 +116,29 @@ class Server:
                 delta=self.args.delta
             )
             print(
+                f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
                 f"Train Epoch: {epoch} \t"
                 f"Loss: {train_loss:.6f} "
                 f"Acc@1: {train_acc * 100:.6f} "
                 f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
             )
             print(
+                f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
                 f"Train Epoch: {epoch} \t"
                 f"Test loss: {test_loss:.6f} "
                 f"Test acc@1: {test_acc * 100:.6f} "
                 f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
             )
         else:
-            print(f"Train Epoch: {epoch} \t Loss: {train_loss:.6f}"
-                  f"\t Acc@1: {train_acc * 100:.6f} "
+            print(
+                f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
+                f"Train Epoch: {epoch} \t Loss: {train_loss:.6f}"
+                f"\t Acc@1: {train_acc * 100:.6f} "
                   )
-            print(f"Test Epoch: {epoch} \t Loss: {test_loss:.6f}"
-                  f"\t Acc@1: {test_acc * 100:.6f} "
+            print(
+                f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
+                f"Test Epoch: {epoch} \t Loss: {test_loss:.6f}"
+                f"\t Acc@1: {test_acc * 100:.6f} "
                   )
         return train_loss, train_acc, test_loss, test_acc
 

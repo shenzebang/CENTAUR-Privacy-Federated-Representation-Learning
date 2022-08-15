@@ -115,31 +115,38 @@ def fix_DP_model_keys(args, model: nn.Module):
 def set_cuda(args):
     '''
         Use "args.gpu" to determine the gpu setting.
+
     '''
     os.environ['CUDA_LAUNCH_BLOCKING']='1'
 
-    gpus = args.gpu.split('-')
-    negative_gpu = False
-    for gpu in gpus:
-        if int(gpu) < 0:
-            negative_gpu = True
+    #### TODO: THIS IS NOT WORKING! ####
 
-    if negative_gpu:
-        print(
-            f"Using CPU only"
-        )
-        os.environ["CUDA_VISIBLE_DEVICES"] = ""
-        args.n_gpus = 0
-        return 0
-
-    n_gpus = len(gpus)
-    gpus = ",".join(gpus)
+    # gpus = args.gpu.split('-')
+    # negative_gpu = False
+    # for gpu in gpus:
+    #     if int(gpu) < 0:
+    #         negative_gpu = True
+    #
+    # if negative_gpu:
+    #     print(
+    #         f"Using CPU only"
+    #     )
+    #     os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    #     args.n_gpus = 0
+    #     return 0
+    #
+    # n_gpus = len(gpus)
+    # gpus = ",".join(gpus)
+    # print(
+    #     f"Using GPUs {gpus}"
+    # )
+    # os.environ["CUDA_VISIBLE_DEVICES"] = gpus
+    # args.n_gpus = n_gpus
+    args.n_gpus = torch.cuda.device_count()
     print(
-        f"Using GPUs {gpus}"
+        f"[ There are {args.n_gpus} GPUs available. ]"
     )
-    os.environ["CUDA_VISIBLE_DEVICES"] = gpus
-    args.n_gpus = n_gpus
-    return n_gpus
+    return args.n_gpus
 
 
 class CudaMemoryPrinter:
@@ -199,3 +206,18 @@ def check_args(args):
             "[ Automatically set args.use_ray to False. ]"
         )
         args.use_ray = False
+
+def restore_from_checkpoint(args, global_model, checkpoint_dir=None):
+    if checkpoint_dir is not None:
+        print(
+            "Unless starting from a pretrained model, "
+            "when training from scratch, "
+            "loading checkpoint may not make much sense since the privacy accountant is not loaded."
+        )
+        checkpoint = os.path.join(checkpoint_dir, "checkpoint")
+        model_state = torch.load(checkpoint)
+        global_model.load_state_dict(model_state)
+        if args.verbose:
+            print(
+                f"Load checkpoint (model_state) from file {checkpoint}."
+            )

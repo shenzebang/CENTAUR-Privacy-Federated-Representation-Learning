@@ -19,10 +19,11 @@ args=(--alg DP_FedRep
     #  save/load configuration
     #  backend configuration
     --gpu 0-1-2-3
-    --use_ray
+#     --use_ray
     --ray_gpu_fraction .5
     #  test configuration
     #  train configuration
+    --frac_participate .1
     --batch_size 4000
     --MAX_PHYSICAL_BATCH_SIZE 64
     --local_ep 1

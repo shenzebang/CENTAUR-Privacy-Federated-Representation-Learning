@@ -8,7 +8,7 @@ args=(--alg DP_FedAvg_ft
     #  experiment configuration
     #         --data_augmentation
     #         --data_augmentation_multiplicity 16
-    --epochs 300
+    --epochs 400
     --seed 1
     --num_users 100
     #  DP configuration
@@ -18,11 +18,12 @@ args=(--alg DP_FedAvg_ft
     --dp_clip 1
     #  save/load configuration
     #  backend configuration
-    --gpu 0-1-2-3
-    --use_ray
-    --ray_gpu_fraction .3
+#     --gpu 0-1-2-3
+#     --use_ray
+#     --ray_gpu_fraction .3
     #  test configuration
     #  train configuration
+    --frac_participate .1
     --batch_size 4000
     --MAX_PHYSICAL_BATCH_SIZE 64
     --local_ep 1
@@ -33,4 +34,4 @@ args=(--alg DP_FedAvg_ft
     --ft-ep 15
     )
 
-python main.py "${args[@]}"
+CUDA_VISIBLE_DEVICES=0 python main.py "${args[@]}"

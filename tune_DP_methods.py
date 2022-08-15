@@ -87,7 +87,7 @@ if __name__ == '__main__':
     if n_gpus > 0:
         ray.init(num_gpus=n_gpus, log_to_driver=False)
 
-        ray_tune(args, num_samples=1, gpus_per_trial=.33)
+        ray_tune(args, num_samples=1, gpus_per_trial=.5)
 
     else:
         print(

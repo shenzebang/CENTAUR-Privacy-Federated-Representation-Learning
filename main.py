@@ -58,19 +58,8 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
     # Init model
     global_model = get_model(args).to(device)
     summary(global_model, input_size=(3, 32, 32))
-    if checkpoint_dir is not None:
-        print(
-            "Unless starting from a pretrained model, "
-            "when training from scratch, "
-            "loading checkpoint may not make much sense since the privacy accountant is not loaded."
-        )
-        checkpoint = os.path.join(checkpoint_dir, "checkpoint")
-        model_state = torch.load(checkpoint)
-        global_model.load_state_dict(model_state)
-        if args.verbose:
-            print(
-                f"Load checkpoint (model_state) from file {checkpoint}."
-            )
+    restore_from_checkpoint(args, global_model, checkpoint_dir)
+
 
     # Init representation keys
     representation_keys = get_representation_keys(args, global_model)

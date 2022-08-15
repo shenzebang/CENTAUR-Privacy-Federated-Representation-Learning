@@ -19,7 +19,7 @@ args=(--alg Local
     #  save/load configuration
     #  backend configuration
     --gpu 0-1-2-3
-    --use_ray
+#     --use_ray
     --ray_gpu_fraction .3
     #  test configuration
     #  train configuration
