@@ -18,9 +18,9 @@ args=(--alg DP_FedAvg_ft
     --dp_clip 1
     #  save/load configuration
     #  backend configuration
-    --gpu 0-1-2-3
+#     --gpu 0-1-2-3
 #     --use_ray
-    --ray_gpu_fraction 0.5
+#     --ray_gpu_fraction 0.5
     #  test configuration
     #  train configuration
     --frac_participate .1
@@ -34,4 +34,4 @@ args=(--alg DP_FedAvg_ft
     --ft-ep 15
     )
 
-python main.py "${args[@]}"
+CUDA_VISIBLE_DEVICES=0 python main.py "${args[@]}"

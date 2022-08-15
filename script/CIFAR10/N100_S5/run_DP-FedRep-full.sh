@@ -1,4 +1,4 @@
-args=(--alg DP_FedAvg_ft
+args=(--alg DP_FedRep
     #  model configuration
     --model cnn
     #  dataset configuration
@@ -22,15 +22,15 @@ args=(--alg DP_FedAvg_ft
 #     --ray_gpu_fraction 0.3
     #  test configuration
     #  train configuration
-    --frac_participate .1
+    --frac_participate 1
     --batch_size 4000
     --MAX_PHYSICAL_BATCH_SIZE 64
     --local_ep 1
     # --verbose
     # algorithm specific configuration
-    --lr 1e-1
+    --lr-rep 1e-1
     --lr-head 1e-2
-    --ft-ep 15
+    --local_head_ep 15
     )
 
-CUDA_VISIBLE_DEVICES=2 python main.py "${args[@]}"
+CUDA_VISIBLE_DEVICES=3 python main.py "${args[@]}"

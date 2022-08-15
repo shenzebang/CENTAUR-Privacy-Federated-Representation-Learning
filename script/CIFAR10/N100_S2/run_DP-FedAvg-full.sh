@@ -3,10 +3,11 @@ args=(--alg DP_FedAvg_ft
     --model cnn
     #  dataset configuration
     --dataset cifar10
-    --shard_per_user 5
+    --shard_per_user 2
     --num_classes 10
     #  experiment configuration
-    #      --data_augmentation
+#     --data_augmentation
+#     --data_augmentation_multiplicity 16
     --epochs 400
     --seed 1
     --num_users 100
@@ -19,10 +20,10 @@ args=(--alg DP_FedAvg_ft
     #  backend configuration
 #     --gpu 0-1-2-3
 #     --use_ray
-#     --ray_gpu_fraction 0.3
+#     --ray_gpu_fraction 0.5
     #  test configuration
     #  train configuration
-    --frac_participate .1
+    --frac_participate 1
     --batch_size 4000
     --MAX_PHYSICAL_BATCH_SIZE 64
     --local_ep 1
@@ -33,4 +34,4 @@ args=(--alg DP_FedAvg_ft
     --ft-ep 15
     )
 
-CUDA_VISIBLE_DEVICES=2 python main.py "${args[@]}"
+CUDA_VISIBLE_DEVICES=0 python main.py "${args[@]}"

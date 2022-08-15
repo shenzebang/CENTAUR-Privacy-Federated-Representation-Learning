@@ -35,6 +35,7 @@ def get_transform(dataset_name, train=True, use_data_augmentation=False):
 
     return transform
 
+
 def get_dataset(dataset_name, train=True, transform=None):
     with FileLock(os.path.expanduser("~/.data.lock")):
         if dataset_name == 'mnist':
@@ -50,11 +51,7 @@ def get_dataset(dataset_name, train=True, transform=None):
 
 
 def prepare_dataloaders(args):
-    '''
-        For now, only CIFAR10/CIFAR100 are implemented.
-    '''
-
-
+    #   For now, only CIFAR10/CIFAR100 are implemented.
     num_users_orig = args.num_users
 
     # TODO: if args.num_users == 1, i.e. the centralized setting, the data allocation part can be simplified.
@@ -81,7 +78,7 @@ def prepare_dataloaders(args):
         else:
             raise NotImplementedError
 
-        if args.data_augmentation: # use DeepMind data augmentation
+        if args.data_augmentation:  # use DeepMind data augmentation
             '''
                 In DP setting, directly add data augmentation to the training procedure deteriorates the utility.
                 If "args.data_augmentation" is set to True, we will implement data augmentation as described in 
@@ -106,30 +103,29 @@ def prepare_dataloaders(args):
             imgs = torch.stack(imgs, dim=0)
             targets = torch.tensor(targets)
             ground_dataset_train = torch.utils.data.TensorDataset(imgs, targets)
-            transform_multiplicity = None # disable transform_multiplicity since all data points have been pre-processed
+            transform_multiplicity = None  # disable transform_multiplicity since all data points are pre-processed
 
-
-        # Wrap DatasetSplit with DatasetMultiplicity to produce multiple augmented images from a single image (if necessary)
-        make_dataset = lambda _dataset_train, _dict_users_train_uid: \
-            DatasetMultiplicity(
-                DatasetSplit(_dataset_train, _dict_users_train_uid),
-                transform_multiplicity,
-                args.data_augmentation_multiplicity
-            )
+        # Wrap DatasetSplit with DatasetMultiplicity to produce multiple augmented images from a single image
+        def make_dataset(_dataset_train, _dict_users_train_uid):
+            return DatasetMultiplicity(
+                    DatasetSplit(_dataset_train, _dict_users_train_uid),
+                    transform_multiplicity,
+                    args.data_augmentation_multiplicity
+                    )
 
         train_dataloaders = []
-        train_batch_size_too_large = False
+        bs_too_large = False
         for uid in range(args.num_users):
             dataset_train_uid = make_dataset(ground_dataset_train, dict_users_train[uid])
             batch_size = min(args.batch_size, len(dataset_train_uid))
-            train_batch_size_too_large = False if args.batch_size <= len(dataset_train_uid) and not train_batch_size_too_large else True
+            bs_too_large = False if args.batch_size <= len(dataset_train_uid) and not bs_too_large else True
             train_dataloaders.append(DataLoader(dataset_train_uid,
                                         batch_size=batch_size,
                                         num_workers=0,
                                         # pin_memory=True,
                                         shuffle=True
                                         ))
-        if train_batch_size_too_large:
+        if bs_too_large:
             print(
                 f"[ The train batch size is larger than the size of the local training dataset. ]"
             )
