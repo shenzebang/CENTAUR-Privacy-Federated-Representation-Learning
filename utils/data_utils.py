@@ -126,7 +126,7 @@ def prepare_dataloaders(args):
             train_dataloaders.append(DataLoader(dataset_train_uid,
                                         batch_size=batch_size,
                                         num_workers=0,
-                                        pin_memory=True,
+                                        # pin_memory=True,
                                         shuffle=True
                                         ))
         if train_batch_size_too_large:
@@ -173,7 +173,7 @@ def prepare_dataloaders(args):
             test_dataloaders.append(DataLoader(dataset_test_uid,
                                 batch_size=batch_size,
                                 num_workers=0,
-                                pin_memory=True,
+                                # pin_memory=True,
                                 shuffle=False
                             ))
 
