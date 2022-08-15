@@ -12,14 +12,14 @@ args=(--alg Local
     --seed 1
     --n_runs 1
     #  DP configuration
-#     --disable-dp
+    --disable-dp
     --epsilon 1
     --delta 1e-5
     --dp_clip 1
     #  save/load configuration
     #  backend configuration
-    --gpu 0-1-2-3
-#     --use_ray
+#     --gpu 0-1-2-3
+    --use_ray
     --ray_gpu_fraction .3
     #  test configuration
     #  train configuration

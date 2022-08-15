@@ -18,7 +18,7 @@ args=(--alg Local
     --dp_clip 1
     #  save/load configuration
     #  backend configuration
-    --gpu 0-1-2-3
+#     --gpu 0-1-2-3
     --use_ray
     --ray_gpu_fraction .3
     #  test configuration
