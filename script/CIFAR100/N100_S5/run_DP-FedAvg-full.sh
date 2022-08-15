@@ -34,4 +34,4 @@ args=(--alg DP_FedAvg_ft
     --ft-ep 15
     )
 
-CUDA_VISIBLE_DEVICES=0 python main.py "${args[@]}"
+CUDA_VISIBLE_DEVICES=1 python main.py "${args[@]}"

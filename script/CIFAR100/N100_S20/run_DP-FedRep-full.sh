@@ -32,4 +32,4 @@ args=(--alg DP_FedRep
     --local_head_ep 15
     )
 
-CUDA_VISIBLE_DEVICES=0 python main.py "${args[@]}"
+CUDA_VISIBLE_DEVICES=3 python main.py "${args[@]}"
