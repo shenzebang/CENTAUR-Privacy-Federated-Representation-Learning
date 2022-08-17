@@ -111,35 +111,36 @@ class Server:
 
     def report(self, epoch, results: Results):
         train_loss, train_acc, test_loss, test_acc = results.mean()
-        if not self.args.disable_dp:
-            epsilon, best_alpha = self.clients[0].PE.accountant.get_privacy_spent(
-                delta=self.args.delta
-            )
-            print(
-                f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
-                f"Train Epoch: {epoch} \t"
-                f"Loss: {train_loss:.6f} "
-                f"Acc@1: {train_acc * 100:.6f} "
-                f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
-            )
-            print(
-                f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
-                f"Train Epoch: {epoch} \t"
-                f"Test loss: {test_loss:.6f} "
-                f"Test acc@1: {test_acc * 100:.6f} "
-                f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
-            )
-        else:
-            print(
-                f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
-                f"Train Epoch: {epoch} \t Loss: {train_loss:.6f}"
-                f"\t Acc@1: {train_acc * 100:.6f} "
-                  )
-            print(
-                f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
-                f"Test Epoch: {epoch} \t Loss: {test_loss:.6f}"
-                f"\t Acc@1: {test_acc * 100:.6f} "
-                  )
+        if epoch % self.args.print_freq == 0 or epoch > self.args.epochs - 5:
+            if not self.args.disable_dp:
+                epsilon, best_alpha = self.clients[0].PE.accountant.get_privacy_spent(
+                    delta=self.args.delta
+                )
+                print(
+                    f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
+                    f"Train Epoch: {epoch} \t"
+                    f"Loss: {train_loss:.6f} "
+                    f"Acc@1: {train_acc * 100:.6f} "
+                    f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
+                )
+                print(
+                    f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
+                    f"Train Epoch: {epoch} \t"
+                    f"Test loss: {test_loss:.6f} "
+                    f"Test acc@1: {test_acc * 100:.6f} "
+                    f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
+                )
+            else:
+                print(
+                    f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
+                    f"Train Epoch: {epoch} \t Loss: {train_loss:.6f}"
+                    f"\t Acc@1: {train_acc * 100:.6f} "
+                      )
+                print(
+                    f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
+                    f"Test Epoch: {epoch} \t Loss: {test_loss:.6f}"
+                    f"\t Acc@1: {test_acc * 100:.6f} "
+                      )
         return train_loss, train_acc, test_loss, test_acc
 
     def divide_into_subgroups(self):

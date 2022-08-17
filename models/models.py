@@ -76,7 +76,8 @@ class CNNCifar100(nn.Module):
         super(CNNCifar100, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, 5)
         self.pool = nn.MaxPool2d(2, 2)
-        # self.drop = nn.Dropout(0.6)
+        self.drop = nn.Dropout(0.6)
+        # Dropout is necessary in CIFAR100 to avoid over-fitting of the head
         self.conv2 = nn.Conv2d(64, 128, 5)
         self.fc1 = nn.Linear(128 * 5 * 5, 384)
         self.fc2 = nn.Linear(384, 192)
@@ -95,7 +96,7 @@ class CNNCifar100(nn.Module):
         x = self.pool(F.relu(self.conv2(x)))
         x = x.view(-1, 128 * 5 * 5)
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = self.drop(F.relu(self.fc2(x)))
         x = self.fc3(x)
         return x
 

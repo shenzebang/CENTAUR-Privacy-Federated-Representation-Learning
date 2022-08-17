@@ -8,32 +8,40 @@ from filelock import FileLock
 from torchvision import datasets
 from typing import List
 
-from models.transforms import trans_mnist, trans_cifar10_train, trans_cifar10_val, trans_cifar100_train, \
-    trans_cifar100_val
+from models.transforms import *
 
 import random
 import torch
 
 import pandas as pd
 
+TRANSFORM_NORMALIZATION = {
+    "cifar10": trans_cifar10_normalization,
+    "cifar100": trans_cifar100_normalization,
+}
 
-def get_transform(dataset_name, train=True, use_data_augmentation=False):
-    if dataset_name == 'mnist':
-        transform = trans_mnist
-    elif dataset_name == 'cifar10':
-        if train:
-            transform = trans_cifar10_train if use_data_augmentation else trans_cifar10_val
-        else:
-            transform = trans_cifar10_val
-    elif dataset_name == 'cifar100':
-        if train:
-            transform = trans_cifar100_train if use_data_augmentation else trans_cifar100_val
-        else:
-            transform = trans_cifar100_val
-    else:
-        raise NotImplementedError
+TRANSFORM_AUGMENTATION = {
+    "cifar10": trans_cifar10_augmentation,
+    "cifar100": trans_cifar100_augmentation,
+}
 
-    return transform
+# def get_transform(dataset_name, train=True, use_data_augmentation=False):
+#     if dataset_name == 'mnist':
+#         transform = trans_mnist
+#     elif dataset_name == 'cifar10':
+#         if train:
+#             transform = trans_cifar10_train if use_data_augmentation else trans_cifar10_val
+#         else:
+#             transform = trans_cifar10_val
+#     elif dataset_name == 'cifar100':
+#         if train:
+#             transform = trans_cifar100_train if use_data_augmentation else trans_cifar100_val
+#         else:
+#             transform = trans_cifar100_val
+#     else:
+#         raise NotImplementedError
+#
+#     return transform
 
 
 def get_dataset(dataset_name, train=True, transform=None):
@@ -69,14 +77,21 @@ def prepare_dataloaders(args):
         '''
             2. Prepare the train dataloader
         '''
+        print(
+            "[ Pre-process (normalization) the dataset to improve the efficiency. ]"
+        )
+        # create a TensorDataset
+        iter_ground_dataset_train = iter(ground_dataset_train)
+        imgs = []
+        targets = []
+        for img, target in iter_ground_dataset_train:
+            imgs.append(TRANSFORM_NORMALIZATION[args.dataset](img))
+            targets.append(target)
 
-        # Configure the transform that we want to use for training
-        if args.dataset == 'cifar10':
-            transform_multiplicity = trans_cifar10_train if args.data_augmentation else trans_cifar10_val
-        elif args.dataset == 'cifar100':
-            transform_multiplicity = trans_cifar100_train if args.data_augmentation else trans_cifar100_val
-        else:
-            raise NotImplementedError
+        # replace "ground_dataset_train" with the preprocessed TensorDataset for efficiency
+        imgs = torch.stack(imgs, dim=0)
+        targets = torch.tensor(targets)
+        ground_dataset_train = torch.utils.data.TensorDataset(imgs, targets)
 
         if args.data_augmentation:  # use DeepMind data augmentation
             '''
@@ -87,23 +102,13 @@ def prepare_dataloaders(args):
             print(
                 "[ Using data augmentation implementation as described in the DeepMind paper! ]"
             )
+            transform_multiplicity = TRANSFORM_AUGMENTATION[args.dataset]
         else:
             print(
-                "[ Since there is no data augmentation, pre-process the dataset to improve the efficiency. ]"
+                "[ No data augmentation. ]"
             )
-            # create a tensordataset
-            iter_ground_dataset_train = iter(ground_dataset_train)
-            imgs = []
-            targets = []
-            for img, target in iter_ground_dataset_train:
-                imgs.append(transform_multiplicity(img))
-                targets.append(target)
-
-            # replace "ground_dataset_train" with the preprocessed TensorDataset for efficiency
-            imgs = torch.stack(imgs, dim=0)
-            targets = torch.tensor(targets)
-            ground_dataset_train = torch.utils.data.TensorDataset(imgs, targets)
             transform_multiplicity = None  # disable transform_multiplicity since all data points are pre-processed
+
 
         # Wrap DatasetSplit with DatasetMultiplicity to produce multiple augmented images from a single image
         def make_dataset(_dataset_train, _dict_users_train_uid):
@@ -130,30 +135,23 @@ def prepare_dataloaders(args):
                 f"[ The train batch size is larger than the size of the local training dataset. ]"
             )
 
+
+
         '''
             3. Prepare the test dataloader
         '''
-        # Configure the transform that we want to use for testing
-        if args.dataset == 'cifar10':
-            transform_test = trans_cifar10_val
-        elif args.dataset == 'cifar100':
-            transform_test = trans_cifar100_val
-        else:
-            raise NotImplementedError
-
-
-        # Since there is no data augmentation, pre-process the dataset to improve the efficiency.
+        # Pre-process (normalization) the dataset to improve the efficiency.
         iter_ground_dataset_test = iter(ground_dataset_test)
         imgs = []
         targets = []
         for img, target in iter_ground_dataset_test:
-            imgs.append(transform_test(img))
+            imgs.append(TRANSFORM_NORMALIZATION[args.dataset](img))
             targets.append(target)
 
         imgs = torch.stack(imgs, dim=0)
         targets = torch.tensor(targets)
         ground_dataset_test = torch.utils.data.TensorDataset(imgs, targets)
-        transform_test = None  # disable transform_multiplicity since all data points have been pre-processed
+        transform_test = None  # disable transform_multiplicity since there is no data augmentation for testing
 
         make_dataset = lambda _dataset, _dict_users_uid: \
             DatasetMultiplicity(
@@ -172,8 +170,6 @@ def prepare_dataloaders(args):
                                 # pin_memory=True,
                                 shuffle=False
                             ))
-
-
 
     ####################################################################################################################
     ###########################    harass   ############################################################################

@@ -21,6 +21,7 @@ args=(--alg DP_FedAvg_ft
 #     --use_ray
 #     --ray_gpu_fraction .3
     #  test configuration
+    --print_freq 1
     #  train configuration
     --frac_participate .1
     --batch_size 4000

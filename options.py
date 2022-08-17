@@ -87,7 +87,7 @@ def args_parser():
     # Test configuration
     parser.add_argument('--test_batch_size', type=int, default=128, help="test batch size")
     parser.add_argument('--bs', type=int, default=128, help="test batch size")
-    parser.add_argument('--test_freq', type=int, default=1, help='how often to test on val set')
+    parser.add_argument('--print_freq', type=int, default=10)
 
     # Dataset configuration
     parser.add_argument('--dataset', type=str, default='mnist', help="name of dataset")

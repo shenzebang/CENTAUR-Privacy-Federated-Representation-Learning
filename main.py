@@ -101,6 +101,18 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
         test_losses.append(test_loss.item())
         test_accs.append(test_acc.item())
 
+    # Test the final model
+    # 1. Disable the partial participation
+    server.args.frac_participate = 1.
+    # 2. Call server.step(0) to obtain train/test results WITHOUT printing
+    train_loss, train_acc, test_loss, test_acc = server.step(0)
+    # 3. Print the results
+    print(
+        f"After {args.epochs} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
+        f"Train Loss: {train_loss:.2f} Train Acc@1: {train_acc * 100:.2f} \t"
+        f"Test loss: {test_loss:.2f} Test acc@1: {test_acc * 100:.2f} "
+    )
+
     # return results
     return train_losses, train_accs, server.model.state_dict()
 
@@ -109,7 +121,7 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
 
 if __name__ == '__main__':
     args = args_parser()
-
+    args.disable_dp = True
     n_gpus = set_cuda(args)
 
     check_args(args)
