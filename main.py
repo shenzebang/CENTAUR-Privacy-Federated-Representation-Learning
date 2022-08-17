@@ -121,7 +121,7 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
 
 if __name__ == '__main__':
     args = args_parser()
-    args.disable_dp = True
+    # args.disable_dp = True
     n_gpus = set_cuda(args)
 
     check_args(args)
