@@ -52,7 +52,7 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
     (Server, Client) = ALGORITHMS[args.alg]
 
     # Init Dataloaders
-    train_dataloaders, test_dataloaders = prepare_dataloaders(args)
+    train_dataloaders, validation_dataloaders, test_dataloaders = prepare_dataloaders(args)
 
 
     # Init model
@@ -68,8 +68,9 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
         f"{representation_keys}"
     )
     # Init Clients
-    clients = [Client(idx, args, representation_keys, traindlr, testdlr, global_model, device) for idx, (traindlr, testdlr) in
-               enumerate(zip(train_dataloaders, test_dataloaders))]
+    clients = [Client(idx, args, representation_keys, traindlr, testdlr, validdlr, global_model, device)
+               for idx, (traindlr, validdlr, testdlr) in
+               enumerate(zip(train_dataloaders, validation_dataloaders, test_dataloaders))]
 
     # Init Server
     remote_workers = create_remote_workers(args) # create remote workers with ray backend
@@ -79,11 +80,13 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
 
     train_losses = []
     train_accs = []
+    validation_losses = []
+    validation_accs = []
     test_losses = []
     test_accs = []
     # Run experiment
     for epoch in range(args.epochs):
-        train_loss, train_acc, test_loss, test_acc = server.step(epoch)
+        train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = server.step(epoch)
         if is_ray_tune:
             with tune.checkpoint_dir(step=epoch) as checkpoint_dir:
                 path = os.path.join(checkpoint_dir, "checkpoint")
@@ -92,12 +95,16 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
             tune.report(
                 train_loss  = train_loss.item(),
                 train_acc   = train_acc.item(),
+                validation_loss = validation_loss.item(),
+                validation_acc = validation_acc.item(),
                 test_loss   = test_loss.item(),
                 test_acc    = test_acc.item()
             )
 
         train_losses.append(train_loss.item())
         train_accs.append(train_acc.item())
+        validation_losses.append(validation_loss.item())
+        validation_accs.append(validation_acc.item())
         test_losses.append(test_loss.item())
         test_accs.append(test_acc.item())
 
@@ -105,16 +112,17 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
     # 1. Disable the partial participation
     server.args.frac_participate = 1.
     # 2. Call server.step(0) to obtain train/test results WITHOUT printing
-    train_loss, train_acc, test_loss, test_acc = server.step(0)
+    train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = server.step(0)
     # 3. Print the results
     print(
         f"After {args.epochs} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
         f"Train Loss: {train_loss:.2f} Train Acc@1: {train_acc * 100:.2f} \t"
+        f"Validation Loss: {validation_loss:.2f} Validation Acc@1: {validation_acc * 100:.2f} \t"
         f"Test loss: {test_loss:.2f} Test acc@1: {test_acc * 100:.2f} "
     )
 
     # return results
-    return train_losses, train_accs, server.model.state_dict()
+    return train_losses, train_accs, validation_losses, validation_accs, test_losses, test_accs, server.model.state_dict()
 
 
 
@@ -143,7 +151,7 @@ if __name__ == '__main__':
                 3.  The outputs (loss, accuracy) of <main> will be returned using ray.tune.report.
     ####################################################################################################################            
     '''
-    loss, top1_acc, model_state = main(args)
+    train_losses, train_accs, validation_losses, validation_accs, test_losses, test_accs, model_state = main(args)
 
     # '''
     # ####################################################################################################################

@@ -93,6 +93,7 @@ def args_parser():
     parser.add_argument('--dataset', type=str, default='mnist', help="name of dataset")
     parser.add_argument('--num_classes', type=int, default=10, help="number of classes")
     parser.add_argument('--num_channels', type=int, default=3, help="number of channels of imges")
+    parser.add_argument('--validation_ratio', type=float, default=.1)
 
     # Experiment configuration
     parser.add_argument('--alg', type=str, default='DP_FedRep', choices=['DP_FedRep', 'DP_FedAvg_ft', 'PPSGD', 'Local'])
@@ -146,6 +147,10 @@ def args_parser():
 
     ### PPSGD
     parser.add_argument('--lr_l', type=float, default=0.1, help="learning rate of the local model")
+
+
+    ### Ray.tune configuration
+    parser.add_argument('--gpus_per_trial', type=float, default=1.,)
 
     args = parser.parse_args()
     return args

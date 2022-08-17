@@ -11,22 +11,30 @@ class Results:
     def __init__(self):
         self.train_losses = []
         self.train_accs = []
+        self.validation_losses = []
+        self.validation_accs = []
         self.test_losses = []
         self.test_accs = []
 
     def add(self, result):
         train_loss = result["train loss"]
         train_acc = result["train acc"]
+        validation_loss = result["validation loss"]
+        validation_acc = result["validation acc"]
         test_loss = result["test loss"]
         test_acc = result["test acc"]
         self.train_losses.append(train_loss)
         self.train_accs.append(train_acc)
+        self.validation_losses.append(validation_loss)
+        self.validation_accs.append(validation_acc)
         self.test_losses.append(test_loss)
         self.test_accs.append(test_acc)
 
     def mean(self):
         return (torch.mean(torch.stack(self.train_losses)),
                 torch.mean(torch.stack(self.train_accs)),
+                torch.mean(torch.stack(self.validation_losses)),
+                torch.mean(torch.stack(self.validation_accs)),
                 torch.mean(torch.stack(self.test_losses)),
                 torch.mean(torch.stack(self.test_accs)))
 
@@ -36,6 +44,7 @@ class Client:
                  args,
                  representation_keys: List[str],
                  train_dataloader: DataLoader,
+                 validation_dataloader: DataLoader,
                  test_dataloader: DataLoader,
                  model: nn.Module,
                  device: torch.device
@@ -45,6 +54,7 @@ class Client:
         self.model = copy.deepcopy(model)
         self.representation_keys = representation_keys
         self.train_dataloader = train_dataloader
+        self.validation_dataloader = validation_dataloader
         self.test_dataloader = test_dataloader
         self.device = device
         self.criterion = nn.CrossEntropyLoss()
@@ -54,23 +64,39 @@ class Client:
 
     def test(self, model_test: nn.Module):
         model_test.eval()
+        with torch.autograd.no_grad():
+            validation_losses = []
+            validation_top1_acc = []
+
+            for _batch_idx, (data, target) in enumerate(self.validation_dataloader):
+                data, target = data.to(self.device), target.to(self.device)
+                output = model_test(data)
+                loss = self.criterion(output, target)
+                validation_losses.append(loss.item())
+
+                preds = np.argmax(output.detach().cpu().numpy(), axis=1)
+                labels = target.detach().cpu().numpy()
+                acc = accuracy(preds, labels)
+                validation_top1_acc.append(acc)
+
 
         with torch.autograd.no_grad():
-            losses = []
-            top1_acc = []
+            test_losses = []
+            test_top1_acc = []
 
             for _batch_idx, (data, target) in enumerate(self.test_dataloader):
                 data, target = data.to(self.device), target.to(self.device)
                 output = model_test(data)
                 loss = self.criterion(output, target)
-                losses.append(loss.item())
+                test_losses.append(loss.item())
 
                 preds = np.argmax(output.detach().cpu().numpy(), axis=1)
                 labels = target.detach().cpu().numpy()
                 acc = accuracy(preds, labels)
-                top1_acc.append(acc)
+                test_top1_acc.append(acc)
 
-        return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
+        return torch.tensor(np.mean(validation_losses)), torch.tensor(np.mean(validation_top1_acc)), \
+               torch.tensor(np.mean(test_losses)), torch.tensor(np.mean(test_top1_acc))
 
     def step(self):
         raise NotImplementedError
@@ -99,6 +125,8 @@ class Server:
         result_dict = {
             "train loss": torch.mean(torch.stack([result["train loss"] for result in results])),
             "train acc": torch.mean(torch.stack([result["train acc"] for result in results])),
+            "validation loss": torch.mean(torch.stack([result["validation loss"] for result in results])),
+            "validation acc": torch.mean(torch.stack([result["validation acc"] for result in results])),
             "test loss": torch.mean(torch.stack([result["test loss"] for result in results])),
             "test acc": torch.mean(torch.stack([result["test acc"] for result in results])),
             "sds": [result["sd"] for result in results],
@@ -110,7 +138,7 @@ class Server:
         raise NotImplementedError
 
     def report(self, epoch, results: Results):
-        train_loss, train_acc, test_loss, test_acc = results.mean()
+        train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = results.mean()
         if epoch % self.args.print_freq == 0 or epoch > self.args.epochs - 5:
             if not self.args.disable_dp:
                 epsilon, best_alpha = self.clients[0].PE.accountant.get_privacy_spent(
@@ -121,6 +149,13 @@ class Server:
                     f"Train Epoch: {epoch} \t"
                     f"Loss: {train_loss:.6f} "
                     f"Acc@1: {train_acc * 100:.6f} "
+                    f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
+                )
+                print(
+                    f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
+                    f"Validation Epoch: {epoch} \t"
+                    f"Loss: {validation_loss:.6f} "
+                    f"Acc@1: {validation_acc * 100:.6f} "
                     f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
                 )
                 print(
@@ -138,10 +173,15 @@ class Server:
                       )
                 print(
                     f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
+                    f"Validation Epoch: {epoch} \t Loss: {validation_loss:.6f}"
+                    f"\t Acc@1: {validation_acc * 100:.6f} "
+                )
+                print(
+                    f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
                     f"Test Epoch: {epoch} \t Loss: {test_loss:.6f}"
                     f"\t Acc@1: {test_acc * 100:.6f} "
                       )
-        return train_loss, train_acc, test_loss, test_acc
+        return train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc
 
     def divide_into_subgroups(self):
         if self.args.frac_participate < 1:

@@ -101,19 +101,21 @@ class ClientDPFedRep(Client):
 
         # 2. Calculate the performance of the representation from the previous iteration
         #    The performance is the
-        test_loss, test_acc = self.test(self.model)
+        validation_loss, validation_acc, test_loss, test_acc = self.test(self.model)
 
         # 3. Update the representation
         train_loss, train_acc = self._train_representation()
 
         # return the accuracy and the updated representation
         result_dict = {
-            "train loss":   train_loss,
-            "train acc":    train_acc,
-            "test loss":    test_loss,
-            "test acc":     test_acc,
-            "sd":           self.model.state_dict(),
-            "PE":           self.PE
+            "train loss":       train_loss,
+            "train acc":        train_acc,
+            "validation loss":  validation_loss,
+            "validation acc":   validation_acc,
+            "test loss":        test_loss,
+            "test acc":         test_acc,
+            "sd":               self.model.state_dict(),
+            "PE":               self.PE
         }
 
         if self.args.verbose:

@@ -71,7 +71,8 @@ def prepare_dataloaders(args):
         '''
             1. Load the train/test datasets, create a user to data point map "dict_users_train"/"dict_users_test"
         '''
-        ground_dataset_train, ground_dataset_test, dict_users_train, dict_users_test, dict_users_class = get_data(args)
+        ground_dataset_train, ground_dataset_test, dict_users_train, \
+                dict_users_validation, dict_users_test, dict_users_class = get_data(args)
         for idx in dict_users_train.keys(): np.random.shuffle(dict_users_train[idx])
 
         '''
@@ -134,11 +135,22 @@ def prepare_dataloaders(args):
             print(
                 f"[ The train batch size is larger than the size of the local training dataset. ]"
             )
-
-
+        '''
+            3. Prepare the validation dataloaders
+        '''
+        validation_dataloaders = []
+        for uid in range(args.num_users):
+            dataset_validatioin_uid = make_dataset(ground_dataset_train, dict_users_validation[uid])
+            batch_size = min(args.batch_size, len(dataset_validatioin_uid))
+            validation_dataloaders.append(DataLoader(dataset_validatioin_uid,
+                                                batch_size=batch_size,
+                                                num_workers=0,
+                                                # pin_memory=True,
+                                                shuffle=True
+                                                ))
 
         '''
-            3. Prepare the test dataloader
+            4. Prepare the test dataloaders
         '''
         # Pre-process (normalization) the dataset to improve the efficiency.
         iter_ground_dataset_test = iter(ground_dataset_test)
@@ -257,7 +269,7 @@ def prepare_dataloaders(args):
             args.num_users = 1
 
 
-    return train_dataloaders, test_dataloaders
+    return train_dataloaders, validation_dataloaders, test_dataloaders
 
 
 def get_data(args, tokenizer=None):
@@ -273,6 +285,7 @@ def get_data(args, tokenizer=None):
                 dict_users_test = iid(dataset_test, args.num_users)
             else:
                 dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var)
+                dict_users_train, dict_users_validation = split_train_validation(args, dict_users_train)
                 dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var, user_to_classes=user_to_classes)
         elif args.dataset == 'cifar10':
             dataset_train = datasets.CIFAR10('~/data/cifar10', train=True, download=True)
@@ -282,6 +295,7 @@ def get_data(args, tokenizer=None):
                 dict_users_test = iid(dataset_test, args.num_users)
             else:
                 dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var)
+                dict_users_train, dict_users_validation = split_train_validation(args, dict_users_train)
                 dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var, user_to_classes=user_to_classes)
         elif args.dataset == 'cifar100':
             dataset_train = datasets.CIFAR100('~/data/cifar100', train=True, download=True)
@@ -291,6 +305,7 @@ def get_data(args, tokenizer=None):
                 dict_users_test = iid(dataset_test, args.num_users)
             else:
                 dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var)
+                dict_users_train, dict_users_validation = split_train_validation(args, dict_users_train)
                 dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var, user_to_classes=user_to_classes)
         elif args.dataset == 'harass':
             df = pd.read_csv('data/Sexual_Harassment_Data/Harassment_Cleaned_tweets.csv')
@@ -324,7 +339,22 @@ def get_data(args, tokenizer=None):
         else:
             exit('Error: unrecognized dataset')
 
-    return dataset_train, dataset_test, dict_users_train, dict_users_test, user_to_classes
+    return dataset_train, dataset_test, dict_users_train, dict_users_validation, dict_users_test, user_to_classes
+
+def split_train_validation(args, dict_users_train):
+    dict_users_validation = {
+        uid: None for uid in range(args.num_users)
+    }
+    if args.validation_ratio > 0.5: raise ValueError("The validation ratio is above 50\%!")
+
+    for uid in range(args.num_users):
+        train_uid = dict_users_train[uid]
+        random.shuffle(train_uid)
+        n_validatioin = int(args.validation_ratio * len(train_uid))
+        dict_users_validation[uid] = train_uid[: n_validatioin]
+        dict_users_train[uid] = train_uid[n_validatioin: ]
+    return dict_users_train, dict_users_validation
+
 
 def iid(dataset, num_users):
     """
