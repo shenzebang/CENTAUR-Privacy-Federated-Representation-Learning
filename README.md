@@ -1,21 +1,17 @@
 # Torch-Privacy-Federated-Learning
-
----
 This repository contains the code for one of our coming papers.
 
+---
 ## Dependence
 
----
 To install the other dependencies: `pip install -r requirements.txt`.
 
 ## Data
 
----
 The CIFAR10, CIFAR100 and MNIST datasets are downloaded automatically by the `torchvision` package. 
 
 ## Usage 
 
----
 We provide scripts that has been tested to produce the results stated in our paper (TO BE DONE!).
 Please see them under the foler `script`.
 
