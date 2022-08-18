@@ -32,7 +32,13 @@ def make_private(args, privacy_engine: PrivacyEngine, model: nn.Module, optimize
     if privacy_engine is None: # do nothing if the privacy engine is void
         return model, optimizer, dataloader
 
-    noise_multiplier = get_noise_multiplier_from_args(args, dataloader)
+    noise_multiplier = get_noise_multiplier(
+        target_epsilon=args.epsilon,
+        target_delta=args.delta,
+        sample_rate=dataloader.batch_size / len(dataloader.dataset),
+        epochs=args.epochs * args.local_ep
+    )
+
     model, optimizer, dataloader = privacy_engine.make_private(
         module=model,
         optimizer=optimizer,
@@ -40,25 +46,7 @@ def make_private(args, privacy_engine: PrivacyEngine, model: nn.Module, optimize
         noise_multiplier=noise_multiplier,
         max_grad_norm=args.dp_clip,
     )
-    # model, optimizer, dataloader = privacy_engine.make_private_with_epsilon(module=model,
-    #             optimizer=optimizer,
-    #             data_loader=dataloader,
-    #             max_grad_norm=args.dp_clip,
-    #             target_epsilon=args.epsilon,
-    #             target_delta=args.delta,
-    #             epochs=args.epochs
-    #         )
     return model, optimizer, dataloader
-
-def get_noise_multiplier_from_args(args, dataloader):
-    sample_rate = dataloader.batch_size / len(dataloader.dataset)
-    noise_multiplier = get_noise_multiplier(
-        target_epsilon=args.epsilon,
-        target_delta=args.delta,
-        sample_rate=sample_rate,
-        epochs=args.epochs * args.local_ep
-    )
-    return noise_multiplier
 
 def activate_in_keys(model: nn.Module, representation_keys: List[str]):
     for name, param in model.named_parameters():
@@ -105,7 +93,7 @@ def get_representation_keys(args, global_model):
 
 def fix_DP_model_keys(args, model: nn.Module):
     sd = model.state_dict()
-    if not args.disable_dp:
+    if not args.disable_dp and args.dp_type == "local-level-DP":
         # Privacy Engine will add prefix to the key of the state_dict.
         # Remove the prefix to ensure compatibility.
         sd = OrderedDict([(key[8:], sd[key]) for key in sd.keys()])
@@ -221,3 +209,39 @@ def restore_from_checkpoint(args, global_model, checkpoint_dir=None):
             print(
                 f"Load checkpoint (model_state) from file {checkpoint}."
             )
+
+def server_update_with_clip(sd: OrderedDict, sd_clients: List[OrderedDict], keys: List[str], clip_threshold=-1, global_lr=1, noise_level=0):
+    '''
+        Only the key in "keys" will be updated. If "keys" is empty, all keys will be updated.
+    '''
+    if len(keys) == 0: keys = sd.keys()
+
+    if clip_threshold <= 0:
+        for key in keys:
+            param_clients_key = [sd_client[key] for sd_client in sd_clients]
+            sd[key] = sd[key] * (1 - global_lr) + global_lr * torch.mean(torch.stack(param_clients_key, dim=0), dim=0)
+    else:
+        diff_clients = [ {} for _ in range(len(sd_clients)) ]
+        norm_diff_clients = [ torch.ones(1) ] * len(sd_clients)
+        # 1. Calculate the norm of differences
+        for cid, sd_client in enumerate(sd_clients):
+            diff_cid = {key: sd_client[key] - sd[key] for key in keys}
+            norm_diff_cid_square = [torch.norm(diff_cid[key]) ** 2 for key in keys]
+            norm_diff_clients[cid] = torch.sqrt(torch.sum(torch.stack(norm_diff_cid_square)))
+            diff_clients[cid] = diff_cid
+
+        # 2. Rescale the diffs
+        rescale_clients = [1 if norm_diff_client<clip_threshold else clip_threshold/norm_diff_client
+                             for norm_diff_client in norm_diff_clients]
+        for rescale_client, diff_client in zip(rescale_clients, diff_clients):
+            for key in keys:
+                diff_client[key] = diff_client[key] * rescale_client
+
+        # 3. update the global model
+        for key in keys:
+            white_noise = noise_level * torch.randn(sd[key].size(), device=sd[key].device) if noise_level > 0 else 0
+            # white_noise = 0
+            diff_clients_key = [diff_client[key] for diff_client in diff_clients]
+            sd[key] = sd[key] + global_lr * (torch.mean(torch.stack(diff_clients_key, dim=0), dim=0) + white_noise / len(sd_clients))
+
+    return sd

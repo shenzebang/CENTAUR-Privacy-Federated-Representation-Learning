@@ -1,6 +1,6 @@
 import warnings
 
-import torch
+from opacus.accountants import RDPAccountant
 
 from utils.common_utils import *
 from utils.ray_remote_worker import *
@@ -59,7 +59,7 @@ class Client:
         self.device = device
         self.criterion = nn.CrossEntropyLoss()
         self.PE = None
-        if not args.disable_dp:
+        if not args.disable_dp and args.dp_type == "local-level-DP":
             self.PE = PrivacyEngine(secure_mode=args.secure_rng)
 
     def test(self, model_test: nn.Module):
@@ -108,6 +108,22 @@ class Server:
         self.representation_keys = representation_keys
         self.clients = clients
         self.remote_workers = remote_workers
+        if not args.disable_dp and args.dp_type == "user-level-DP":
+            self.accountant = RDPAccountant()
+            self.noise_multiplier = get_noise_multiplier(
+                target_epsilon=args.epsilon,
+                target_delta=args.delta,
+                sample_rate=args.frac_participate,
+                epochs=args.epochs * int(1 / args.frac_participate)
+            )
+            print(
+                f"[ To achieve ({args.epsilon}, {args.delta}) user-level DP, the noise multiplier is set to {self.noise_multiplier} ]"
+            )
+            self.clip_threshold = self.args.dp_clip
+        else:
+            self.noise_multiplier = 0
+            self.accountant = None
+            self.clip_threshold = -1
 
     def broadcast(self, clients: List[Client]):
         raise NotImplementedError
@@ -139,31 +155,39 @@ class Server:
 
     def report(self, epoch, results: Results):
         train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = results.mean()
-        if epoch % self.args.print_freq == 0 or epoch > self.args.epochs - 5:
+        if self.accountant is not None:
+            accountant = self.accountant
+        else:
+            accountant = self.clients[0].PE.accountant
+
+        if (epoch % self.args.print_freq == 0 or epoch > self.args.epochs - 5) and epoch > 0:
             if not self.args.disable_dp:
-                epsilon, best_alpha = self.clients[0].PE.accountant.get_privacy_spent(
+                epsilon, best_alpha = accountant.get_privacy_spent(
                     delta=self.args.delta
                 )
                 print(
                     f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
-                    f"Train Epoch: {epoch} \t"
-                    f"Loss: {train_loss:.6f} "
-                    f"Acc@1: {train_acc * 100:.6f} "
-                    f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
+                    f"Epoch: {epoch} \t"
+                    f"Loss: {train_loss:.2f} "
+                    f"Acc@1: {train_acc * 100:.2f} "
+                    f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}\t"
+                    "[ TRAIN ]"
                 )
                 print(
                     f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
-                    f"Validation Epoch: {epoch} \t"
-                    f"Loss: {validation_loss:.6f} "
-                    f"Acc@1: {validation_acc * 100:.6f} "
-                    f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
+                    f"Epoch: {epoch} \t"
+                    f"Loss: {validation_loss:.2f} "
+                    f"Acc@1: {validation_acc * 100:.2f} "
+                    f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}\t"
+                    "[ VALIDATION ]"
                 )
                 print(
                     f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
-                    f"Train Epoch: {epoch} \t"
-                    f"Test loss: {test_loss:.6f} "
-                    f"Test acc@1: {test_acc * 100:.6f} "
-                    f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}"
+                    f"Epoch: {epoch} \t"
+                    f"loss: {test_loss:.2f} "
+                    f"acc@1: {test_acc * 100:.2f} "
+                    f"(ε = {epsilon:.2f}, δ = {self.args.delta}) for α = {best_alpha}\t"
+                    "[ TEST ]"
                 )
             else:
                 print(

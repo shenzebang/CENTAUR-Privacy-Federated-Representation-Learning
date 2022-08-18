@@ -52,6 +52,7 @@ def args_parser():
 
 
     # DP configuration
+    parser.add_argument('--dp_type', type=str, default="local-level-DP", choices=['local-level-DP', 'user-level-DP'])
     parser.add_argument('--dp_clip', type=float, default=1, help='clipping norm for DP')
     parser.add_argument('--epsilon', type=float, default=-1, help='privacy budget')
     parser.add_argument('--delta', type=float, default=1e-6, help='privacy guarantee probability')
@@ -77,6 +78,7 @@ def args_parser():
     parser.add_argument('--local_epochs', type=int, default=1, help="the number of local epochs: E")
     parser.add_argument('--local_bs', type=int, default=10, help="local batch size: B")
     parser.add_argument('--lr', type=float, default=0.01, help="learning rate")
+    parser.add_argument('--global_lr', type=float, default=1., help="update rate on the server")
     parser.add_argument('--momentum', type=float, default=0.9, help="SGD momentum (default: 0.9)")
     parser.add_argument('--lr_decay', type=float, default=0., help="learning rate decay per round")
     parser.add_argument('--weight-decay', default=1e-4, type=float,

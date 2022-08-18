@@ -14,8 +14,7 @@ def get_search_space_from_args(args):
             "C": tune.grid_search([1]),  # tune.sample_from(lambda _: 1),
             # "C": tune.grid_search([.25, .5, 1]),
             "epochs": tune.grid_search([200, 300, 400, 500]),  # tune.loguniform(1e-4, 1e-1),
-            # "local_ep": tune.grid_search([1, 2, 4, 8, 16]),  # tune.loguniform(1e-4, 1e-1),
-            # "local_head_ep": tune.grid_search([10, 20, 30]),
+            "local_ep": tune.grid_search([1, 2, 4, 8, 16]),  # tune.loguniform(1e-4, 1e-1),
             "batch size": tune.grid_search([4000])
         }
     elif args.alg == 'DP_FedAvg_ft':
@@ -27,8 +26,7 @@ def get_search_space_from_args(args):
             # "C": tune.grid_search([.25, .5, 1]),  # tune.sample_from(lambda _: 1),
             "C": tune.grid_search([1]),
             "epochs": tune.grid_search([200, 300, 400, 500]),  # tune.loguniform(1e-4, 1e-1),
-            # "local_ep": tune.grid_search([1, 2, 4, 8, 16]),  # tune.loguniform(1e-4, 1e-1),
-            # "ft_ep": tune.grid_search([10, 20, 30]),
+            "local_ep": tune.grid_search([1, 2, 4, 8, 16]),  # tune.loguniform(1e-4, 1e-1),
             "batch size": tune.grid_search([4000])
         }
     else:
@@ -43,19 +41,15 @@ def update_args_with_config(args, config):
     '''
     if args.alg == 'DP_FedRep':
         args.lr = config['lr']
-        # args.lr_head = config['lr_head']
         args.dp_clip = config['C']
         args.epochs = config['epochs']
-        # args.local_ep = config['local_ep']
-        # args.local_head_ep = config['local_head_ep']
+        args.local_ep = config['local_ep']
         args.batch_size = config['batch size']
     elif args.alg == 'DP_FedAvg_ft':
         args.lr = config['lr']
         args.dp_clip = config['C']
         args.epochs = config['epochs']
         args.batch_size = config['batch size']
-        # args.lr_head = config['lr_head']
-        # args.local_ep = config['local_ep']
-        # args.ft_ep = config['ft_ep']
+        args.local_ep = config['local_ep']
     else:
         raise NotImplementedError

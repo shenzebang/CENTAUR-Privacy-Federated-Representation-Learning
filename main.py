@@ -42,6 +42,15 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
                 f"[ No seed is manually set. ]"
             )
 
+    if args.dp_type == 'user-level-DP':
+        print(
+            "[ Ensuring user-level DP! ]"
+        )
+    else:
+        print(
+            "[ Ensuring local-level DP! ]"
+        )
+
     device = torch.device(f'cuda' if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
 
 

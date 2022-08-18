@@ -140,8 +140,11 @@ class ServerDPFedAvgFT(Server):
             Only the simplest average aggregation is implemented
         '''
         sd = self.model.state_dict()
-        for key in sd.keys():
-            sd[key] = torch.mean(torch.stack([sd_client[key] for sd_client in sds_client], dim=0), dim=0)
+
+        noise_level = self.args.dp_clip * self.noise_multiplier
+
+        sd = server_update_with_clip(sd, sds_client, [], self.clip_threshold, self.args.global_lr, noise_level)
+
         self.model.load_state_dict(sd)
 
     def step(self, epoch: int):
@@ -161,5 +164,10 @@ class ServerDPFedAvgFT(Server):
             # 3. Server aggregate the local updates
             self.aggregate(results_dict_sub_step["sds"])
             results_mega_step.add(results_dict_sub_step)
+
+            if self.accountant is not None:
+                self.accountant.step(
+                    noise_multiplier=self.noise_multiplier, sample_rate=self.args.frac_participate
+                )
 
         return self.report(epoch, results_mega_step)
