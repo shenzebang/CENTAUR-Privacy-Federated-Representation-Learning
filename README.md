@@ -52,14 +52,14 @@ In the following, we explain several important flags.
 Currently, we use [ray](https://github.com/ray-project/ray) to parallel the computations of client update. 
 
 - The overall switch is `args.use_ray`. Without sending this flag, `ray` is disabled and the client updates will be conducted sequentially. Note that when there is no CUDA device available, `ray` will also be automatically disabled. 
-- The flag `args.ray_gpu_fraction` controls the number of ray workers a single GPU can host, which is $floor(1 /args.ray_gpu_fraction ) $. For example when there are 4 gpus available and `args.ray_gpu_fraction` is set to 0.3, then there will be in total 12 ray workers.
+- The flag `args.ray_gpu_fraction` controls the number of ray workers a single GPU can host. For example when there are 4 gpus available and `args.ray_gpu_fraction` is set to 0.3, then there will be in total 12 ray workers (floor(1/0.3) = 3, and 3 * 4 = 12).
 - **Caveat:** Right now, `ray` is not compatible with the partial participation setting, i.e. `args.frac_participate` is less than 1. Hence, when `args.frac_participate` is less than 1, `args.use_ray` will be automatically set to false to disable the ray backend.
 
 ## Summary of results
 We summarize the experiment results as follows. 
 
 In the following table, the number of users N is fixed as 100. S (short for shard) stands for the maximum number classes a client can hold.
-For CIFAR10, the parameter $\delta$ of DP is fixed as $1e^{-5}$. 
+For CIFAR10, the parameter $\delta$ of DP is fixed as $10^{-5}$. 
 
 | Datasets | CIFAR10 (S=2) |
 | ----------- | ----------- |
