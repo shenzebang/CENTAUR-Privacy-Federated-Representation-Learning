@@ -1,0 +1,7 @@
+torch
+torchvision
+torchsummary
+tqdm
+ray[tune]
+opacus
+transformers

@@ -29,7 +29,7 @@ args=(--alg DP_FedRep
     --local_ep 5
     # --verbose
     # algorithm specific configuration
-    --lr 1e-1
+    --lr 1e-2
     --lr-head 1e-2
     --local_head_ep 15
     )

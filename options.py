@@ -16,7 +16,6 @@ def args_parser():
     parser.add_argument('--local_updates', type=int, default=1000000, help="maximum number of local updates")
     parser.add_argument('--m_tr', type=int, default=500, help="maximum number of samples/user to use for training")
     parser.add_argument('--m_ft', type=int, default=500, help="maximum number of samples/user to use for fine-tuning")
-    parser.add_argument('--ft_ep', type=int, default=0, help="the number of fine-tune epochs in the end")
 
 
     
