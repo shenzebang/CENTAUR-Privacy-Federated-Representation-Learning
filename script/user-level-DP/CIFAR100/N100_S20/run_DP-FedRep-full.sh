@@ -24,12 +24,12 @@ args=(--alg DP_FedRep
     --print_freq 2
     #  train configuration
     --frac_participate 1
-    --batch_size 4000
+    --batch_size 50
     --MAX_PHYSICAL_BATCH_SIZE 64
-    --local_ep 10
+    --local_ep 5
     # --verbose
     # algorithm specific configuration
-    --lr-rep 5e-1
+    --lr 1e-1
     --lr-head 1e-2
     --local_head_ep 15
     )
