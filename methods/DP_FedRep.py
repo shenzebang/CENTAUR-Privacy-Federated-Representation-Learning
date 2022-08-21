@@ -30,7 +30,7 @@ class ClientDPFedRep(Client):
         losses = []
         top1_acc = []
 
-        if self.PE is not None:
+        if self.PE is not None and self.train_dataloader.batch_size > self.args.MAX_PHYSICAL_BATCH_SIZE:
             train_loader = wrap_data_loader(
                     data_loader=train_loader,
                     max_batch_size=self.args.MAX_PHYSICAL_BATCH_SIZE,

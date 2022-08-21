@@ -16,60 +16,36 @@ import torch
 import pandas as pd
 
 TRANSFORM_NORMALIZATION = {
-    "cifar10": trans_cifar10_normalization,
-    "cifar100": trans_cifar100_normalization,
+    "mnist"         : trans_mnist_normalization,
+    "cifar10"       : trans_cifar10_normalization,
+    "cifar100"      : trans_cifar100_normalization,
+    "emnist"        : trans_emnist_normalization,
+    "fashionmnist"  : trans_fashionmnist_normalization,
 }
 
 TRANSFORM_AUGMENTATION = {
-    "cifar10": trans_cifar10_augmentation,
-    "cifar100": trans_cifar100_augmentation,
+    "cifar10"   : trans_cifar10_augmentation,
+    "cifar100"  : trans_cifar100_augmentation,
 }
 
-# def get_transform(dataset_name, train=True, use_data_augmentation=False):
-#     if dataset_name == 'mnist':
-#         transform = trans_mnist
-#     elif dataset_name == 'cifar10':
-#         if train:
-#             transform = trans_cifar10_train if use_data_augmentation else trans_cifar10_val
-#         else:
-#             transform = trans_cifar10_val
-#     elif dataset_name == 'cifar100':
-#         if train:
-#             transform = trans_cifar100_train if use_data_augmentation else trans_cifar100_val
-#         else:
-#             transform = trans_cifar100_val
-#     else:
-#         raise NotImplementedError
-#
-#     return transform
 
-
-def get_dataset(dataset_name, train=True, transform=None):
-    with FileLock(os.path.expanduser("~/.data.lock")):
-        if dataset_name == 'mnist':
-            dataset = datasets.MNIST('~/data/mnist/', train=train, download=True, transform=transform)
-        elif dataset_name == 'cifar10':
-            dataset = datasets.CIFAR10('~/data/cifar10', train=train, download=True, transform=transform)
-        elif dataset_name == 'cifar100':
-            dataset = datasets.CIFAR100('~/data/cifar100', train=train, download=True, transform=transform)
-        else:
-            raise NotImplementedError
-
-    return dataset
+TORCHVISION_DATASETS = {'mnist'         : datasets.MNIST,
+                        'cifar10'       : datasets.CIFAR10,
+                        'cifar100'      : datasets.CIFAR100,
+                        'emnist'        : datasets.EMNIST,
+                        'fashionmnist'  : datasets.FashionMNIST,
+                        }
 
 
 def prepare_dataloaders(args):
     #   For now, only CIFAR10/CIFAR100 are implemented.
     num_users_orig = args.num_users
-
-    # TODO: if args.num_users == 1, i.e. the centralized setting, the data allocation part can be simplified.
-
     ####################################################################################################################
     ###########################    CIFAR and MNIST   ###################################################################
     ####################################################################################################################
-    if 'cifar' in args.dataset or args.dataset == 'mnist':
+    if args.dataset in TORCHVISION_DATASETS:
         '''
-            1. Load the train/test datasets, create a user to data point map "dict_users_train"/"dict_users_test"
+            1. Load the train/test datasets, create a user to data-point map "dict_users_train"/"dict_users_test"
         '''
         ground_dataset_train, ground_dataset_test, dict_users_train, \
                 dict_users_validation, dict_users_test, dict_users_class = get_data(args)
@@ -103,6 +79,10 @@ def prepare_dataloaders(args):
             print(
                 "[ Using data augmentation implementation as described in the DeepMind paper! ]"
             )
+            if args.dataset not in TRANSFORM_AUGMENTATION:
+                raise ValueError(
+                    f"No augmentation transform provided for [{args.dataset}]."
+                )
             transform_multiplicity = TRANSFORM_AUGMENTATION[args.dataset]
         else:
             print(
@@ -138,6 +118,11 @@ def prepare_dataloaders(args):
         '''
             3. Prepare the validation dataloaders
         '''
+        def make_dataset(_dataset_train, _dict_users_train_uid):
+            return DatasetMultiplicity(
+                    DatasetSplit(_dataset_train, _dict_users_train_uid),
+                    # no transform since no data augmentation
+                    )
         validation_dataloaders = []
         for uid in range(args.num_users):
             dataset_validatioin_uid = make_dataset(ground_dataset_train, dict_users_validation[uid])
@@ -163,13 +148,11 @@ def prepare_dataloaders(args):
         imgs = torch.stack(imgs, dim=0)
         targets = torch.tensor(targets)
         ground_dataset_test = torch.utils.data.TensorDataset(imgs, targets)
-        transform_test = None  # disable transform_multiplicity since there is no data augmentation for testing
 
         make_dataset = lambda _dataset, _dict_users_uid: \
             DatasetMultiplicity(
                 DatasetSplit(_dataset, _dict_users_uid),
-                transform_test,
-                0
+                # no transform since no data augmentation
             )
 
         test_dataloaders = []
@@ -275,38 +258,16 @@ def prepare_dataloaders(args):
 def get_data(args, tokenizer=None):
     # The "dataset.transform" will be set when creating the dataloader from the dataset
     with FileLock(os.path.expanduser("~/.data.lock")):
-        if args.dataset == 'mnist':
-            dataset_train = datasets.MNIST('~/data/mnist/', train=True, download=True)
-            dataset_test = datasets.MNIST('~/data/mnist/', train=False, download=True)
-            # sample users
-            if args.iid:
-                print('iid')
-                dict_users_train = iid(dataset_train, args.num_users)
-                dict_users_test = iid(dataset_test, args.num_users)
-            else:
-                dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var)
-                dict_users_train, dict_users_validation = split_train_validation(args, dict_users_train)
-                dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var, user_to_classes=user_to_classes)
-        elif args.dataset == 'cifar10':
-            dataset_train = datasets.CIFAR10('~/data/cifar10', train=True, download=True)
-            dataset_test = datasets.CIFAR10('~/data/cifar10', train=False, download=True)
-            if args.iid:
-                dict_users_train = iid(dataset_train, args.num_users)
-                dict_users_test = iid(dataset_test, args.num_users)
-            else:
-                dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var)
-                dict_users_train, dict_users_validation = split_train_validation(args, dict_users_train)
-                dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var, user_to_classes=user_to_classes)
-        elif args.dataset == 'cifar100':
-            dataset_train = datasets.CIFAR100('~/data/cifar100', train=True, download=True)
-            dataset_test = datasets.CIFAR100('~/data/cifar100', train=False, download=True)
-            if args.iid:
-                dict_users_train = iid(dataset_train, args.num_users)
-                dict_users_test = iid(dataset_test, args.num_users)
-            else:
-                dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var)
-                dict_users_train, dict_users_validation = split_train_validation(args, dict_users_train)
-                dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes, args.sample_size_var, user_to_classes=user_to_classes)
+        if args.dataset in TORCHVISION_DATASETS:
+            dataset_train = TORCHVISION_DATASETS[args.dataset](f'~/data/{args.dataset}', train=True, download=True)
+            dataset_test = TORCHVISION_DATASETS[args.dataset](f'~/data/{args.dataset}', train=False, download=True)
+
+            dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user,
+                                                       args.num_classes, args.sample_size_var)
+            dict_users_train, dict_users_validation = split_train_validation(args, dict_users_train)
+            dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes,
+                                     args.sample_size_var, user_to_classes=user_to_classes)
+
         elif args.dataset == 'harass':
             df = pd.read_csv('data/Sexual_Harassment_Data/Harassment_Cleaned_tweets.csv')
             df.head()
@@ -355,24 +316,6 @@ def split_train_validation(args, dict_users_train):
         dict_users_train[uid] = train_uid[n_validatioin: ]
     return dict_users_train, dict_users_validation
 
-
-def iid(dataset, num_users):
-    """
-    Sample I.I.D client data from MNIST dataset
-    :param dataset:
-    :param num_users:
-    :return:
-    """
-    dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
-
-    num_items_per_client = int(len(dataset) / num_users)
-    image_idxs = [i for i in range(len(dataset))]
-
-    for i in range(num_users):
-        dict_users[i] = np.random.choice(image_idxs, num_items_per_client, replace=False)
-        image_idxs = list(set(image_idxs) - set(dict_users[i]))
-
-    return dict_users
 
 def noniid(dataset, num_users, shard_per_user, num_classes, sample_size_var, user_to_classes = None):
     if sample_size_var > 0:
@@ -438,7 +381,7 @@ def noniid(dataset, num_users, shard_per_user, num_classes, sample_size_var, use
             if n_attempt == 100:
                 success = True
                 print(
-                    "Fail to ensure no repeated class for all users!"
+                    "[ Fail to ensure no repeated class for all users! ]"
                 )
 
     # assign
@@ -601,28 +544,8 @@ class DatasetSplit(Dataset):
             image, label = self.dataset[self.sample_ids[item]]
         return image, label
 
-class DatasetSplit2Device(Dataset):
-    def __init__(self, d_split: DatasetSplit, device='cpu'):
-        assert d_split.name == None # only CIFAR10/CIFAR100/MNIST are supported for now
-
-        self.images, self.labels = self.move_to_device(d_split, device)
-        self.len = len(d_split)
-
-    def __len__(self):
-        return self.len
-
-    def __getitem__(self, item):
-        return self.images[item], self.labels[item]
-
-    def move_to_device(self, d_split: DatasetSplit, device):
-        image_and_label = [d_split.dataset[d_split.sample_ids[i]] for i in range(len(d_split))]
-        images = torch.stack([image for image, _ in image_and_label])
-        labels = torch.stack([torch.tensor(label) for _, label in image_and_label])
-
-        return images.to(device), labels.to(device)
-
 class DatasetMultiplicity(Dataset):
-    def __init__(self, d_split: DatasetSplit, transform, multiplicity: int = 0):
+    def __init__(self, d_split: DatasetSplit, transform=None, multiplicity: int = 0):
         assert d_split.name == None  # only CIFAR10/CIFAR100/MNIST are supported for now
         self.d_split = d_split
         self.transform = transform
