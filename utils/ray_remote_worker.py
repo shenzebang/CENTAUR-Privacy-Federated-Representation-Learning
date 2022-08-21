@@ -9,11 +9,11 @@ class Worker:
         self.wid = wid
         self.n_gpus = n_gpus
 
-    def step(self, clients):
+    def step(self, clients, epoch):
         result = []
 
         for client in clients:
-            result.append(client.step())
+            result.append(client.step(epoch))
 
         torch.cuda.empty_cache()
         return result
@@ -33,7 +33,7 @@ def create_remote_workers(args):
         remote_workers = []
     return remote_workers
 
-def compute_with_remote_workers(remote_workers, clients):
+def compute_with_remote_workers(remote_workers, clients, epoch):
     if len(remote_workers) != 0:
         # Use remote workers to accelerate computation.
         num_remote_workers = len(remote_workers)
@@ -63,7 +63,7 @@ def compute_with_remote_workers(remote_workers, clients):
             # )
             ###### Uncomment for the purpose of DEBUG
 
-        ray_job_ids = [remote_worker.step.remote(jobs_clients[wid])
+        ray_job_ids = [remote_worker.step.remote(jobs_clients[wid], epoch)
                   for wid, remote_worker in enumerate(remote_workers)]
         # Calling remote functions only creates job ids. Use ray.get() to actually carry out these jobs.
         results = ray.get(ray_job_ids)
@@ -72,6 +72,6 @@ def compute_with_remote_workers(remote_workers, clients):
         results = list(itertools.chain.from_iterable(results))
     else:
         # No remote workers are available. Simply evaluate sequentially.
-        results = [client.step() for client in clients]
+        results = [client.step(epoch) for client in clients]
 
     return results

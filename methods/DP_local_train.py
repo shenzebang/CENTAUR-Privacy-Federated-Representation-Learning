@@ -61,25 +61,13 @@ class ClientLocalOnly(Client):
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
 
-    def step(self):
-        train_loss, train_acc = self._train()
+    def step(self, step: int):
+        train_loss, train_acc = self._train() if step >= 0 else (torch.tensor(0.), torch.tensor(0.))
 
-        test_loss, test_acc = self.test(self.model)
+        validation_loss, validation_acc, test_loss, test_acc = self.test(self.model)
 
-        # return the accuracy and the updated representation
-        result_dict = {
-            "train loss":   train_loss,
-            "train acc":    train_acc,
-            "test loss":    test_loss,
-            "test acc":     test_acc,
-            "sd":           self.model.state_dict(),
-            "PE":           self.PE
-        }
-        if self.args.verbose:
-            print(
-                f"Client {self.idx} finished."
-            )
-        return result_dict
+        return self.report(train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc)
+
 
 class ServerLocalOnly(Server):
     def broadcast(self, clients: List[Client]):
@@ -97,7 +85,7 @@ class ServerLocalOnly(Server):
     def step(self, epoch: int):
         # Server orchestrates the clients to perform local updates
         results = Results()
-        results.add(self.local_update(self.clients))
+        results.add(self.local_update(self.clients, epoch))
 
         # return results
         return self.report(epoch, results)

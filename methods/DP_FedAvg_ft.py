@@ -98,7 +98,7 @@ class ClientDPFedAvgFT(Client):
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
 
-    def step(self):
+    def step(self, epoch: int):
         # 1. Fine tune the head of a copy
         model_head = copy.deepcopy(self.model)
         _, _ = self._fine_tune_head(model_head)
@@ -110,24 +110,10 @@ class ClientDPFedAvgFT(Client):
         del model_head
 
         # 3. Update the representation
-        train_loss, train_acc = self._train()
+        train_loss, train_acc = self._train() if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
 
         # return the accuracy and the updated representation
-        result_dict = {
-            "train loss":       train_loss,
-            "train acc":        train_acc,
-            "validation loss":  validation_loss,
-            "validation acc":   validation_acc,
-            "test loss":        test_loss,
-            "test acc":         test_acc,
-            "sd":               self.model.state_dict(),
-            "PE":               self.PE
-        }
-        if self.args.verbose:
-            print(
-                f"Client {self.idx} finished."
-            )
-        return result_dict
+        return self.report(train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc)
 
 class ServerDPFedAvgFT(Server):
 
@@ -157,7 +143,7 @@ class ServerDPFedAvgFT(Server):
             # 1. Server broadcast the global model
             self.broadcast(clients)
             # 2. Server orchestrates the clients to perform local updates
-            results_dict_sub_step = self.local_update(clients)
+            results_dict_sub_step = self.local_update(clients, epoch)
             # This step is to ensure the compatibility with the ray backend.
             for client, PE in zip(clients, results_dict_sub_step["PEs"]):
                 client.PE = PE

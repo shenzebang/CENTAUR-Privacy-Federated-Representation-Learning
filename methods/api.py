@@ -62,43 +62,50 @@ class Client:
         if not args.disable_dp and args.dp_type == "local-level-DP":
             self.PE = PrivacyEngine(secure_mode=args.secure_rng)
 
+    def _eval(self, model: nn.Module, dataloader: DataLoader):
+        model.eval()
+        with torch.autograd.no_grad():
+            losses = []
+            top1_acc = []
+
+            for _batch_idx, (data, target) in enumerate(dataloader):
+                data, target = data.to(self.device), target.to(self.device)
+                output = model(data)
+                loss = self.criterion(output, target)
+                losses.append(loss.item())
+
+                preds = np.argmax(output.detach().cpu().numpy(), axis=1)
+                labels = target.detach().cpu().numpy()
+                acc = accuracy(preds, labels)
+                top1_acc.append(acc)
+
+        return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
+
     def test(self, model_test: nn.Module):
-        model_test.eval()
-        with torch.autograd.no_grad():
-            validation_losses = []
-            validation_top1_acc = []
+        validation_loss, validation_top1_acc = self._eval(model_test, self.validation_dataloader)
+        test_loss, test_top1_acc = self._eval(model_test, self.test_dataloader)
 
-            for _batch_idx, (data, target) in enumerate(self.validation_dataloader):
-                data, target = data.to(self.device), target.to(self.device)
-                output = model_test(data)
-                loss = self.criterion(output, target)
-                validation_losses.append(loss.item())
+        return validation_loss, validation_top1_acc, test_loss, test_top1_acc
 
-                preds = np.argmax(output.detach().cpu().numpy(), axis=1)
-                labels = target.detach().cpu().numpy()
-                acc = accuracy(preds, labels)
-                validation_top1_acc.append(acc)
+    def report(self, train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc):
+        if self.args.verbose:
+            print(
+                f"Client {self.idx} finished."
+            )
+        result_dict = {
+            "train loss": train_loss,
+            "train acc": train_acc,
+            "validation loss": validation_loss,
+            "validation acc": validation_acc,
+            "test loss": test_loss,
+            "test acc": test_acc,
+            "sd": self.model.state_dict(),
+            "PE": self.PE
+        }
+        return result_dict
 
 
-        with torch.autograd.no_grad():
-            test_losses = []
-            test_top1_acc = []
-
-            for _batch_idx, (data, target) in enumerate(self.test_dataloader):
-                data, target = data.to(self.device), target.to(self.device)
-                output = model_test(data)
-                loss = self.criterion(output, target)
-                test_losses.append(loss.item())
-
-                preds = np.argmax(output.detach().cpu().numpy(), axis=1)
-                labels = target.detach().cpu().numpy()
-                acc = accuracy(preds, labels)
-                test_top1_acc.append(acc)
-
-        return torch.tensor(np.mean(validation_losses)), torch.tensor(np.mean(validation_top1_acc)), \
-               torch.tensor(np.mean(test_losses)), torch.tensor(np.mean(test_top1_acc))
-
-    def step(self):
+    def step(self, step: int):
         raise NotImplementedError
 
 class Server:
@@ -131,12 +138,12 @@ class Server:
     def aggregate(self, sds_client: List[OrderedDict]):
         raise NotImplementedError
 
-    def local_update(self, clients: List[Client]):
+    def local_update(self, clients: List[Client], epoch: int):
         '''
             Server orchestrates the clients to perform local updates.
             The current implementation did not use ray backend.
         '''
-        results = compute_with_remote_workers(self.remote_workers, clients)
+        results = compute_with_remote_workers(self.remote_workers, clients, epoch)
 
         result_dict = {
             "train loss": torch.mean(torch.stack([result["train loss"] for result in results])),
@@ -155,12 +162,11 @@ class Server:
 
     def report(self, epoch, results: Results):
         train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = results.mean()
-        if self.accountant is not None:
-            accountant = self.accountant
-        else:
-            accountant = self.clients[0].PE.accountant
+        if not self.args.disable_dp:
+            accountant = self.accountant if self.accountant is not None else self.clients[0].PE.accountant
 
-        if (epoch % self.args.print_freq == 0 or epoch > self.args.epochs - 5) and epoch > 0:
+
+        if (epoch % self.args.print_freq == 0 or epoch > self.args.epochs - 5) and epoch >= 0:
             if not self.args.disable_dp:
                 epsilon, best_alpha = accountant.get_privacy_spent(
                     delta=self.args.delta
