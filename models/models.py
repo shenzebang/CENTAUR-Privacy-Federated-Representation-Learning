@@ -3,6 +3,34 @@ import torch.nn.functional as F
 from opacus.validators import ModuleValidator
 import torchvision
 
+class MLP(nn.Module):
+    def __init__(self, args):
+        super(MLP, self).__init__()
+        dim_in = 28 * 28
+        self.layer_input = nn.Linear(dim_in, 512)
+        self.relu = nn.ReLU()
+        self.layer_hidden1 = nn.Linear(512, 256)
+        self.layer_hidden2 = nn.Linear(256, 64)
+        self.layer_out = nn.Linear(64, args.num_classes)
+        self.cls = args.num_classes
+
+        self.weight_keys = [['layer_input.weight', 'layer_input.bias'],
+                            ['layer_hidden1.weight', 'layer_hidden1.bias'],
+                            ['layer_hidden2.weight', 'layer_hidden2.bias'],
+                            ['layer_out.weight', 'layer_out.bias']
+                            ]
+
+    def forward(self, x):
+        x = x.view(-1, x.shape[1]*x.shape[-2]*x.shape[-1])
+        x = self.layer_input(x)
+        x = self.relu(x)
+        x = self.layer_hidden1(x)
+        x = self.relu(x)
+        x = self.layer_hidden2(x)
+        x = self.relu(x)
+        x = self.layer_out(x)
+        return x
+
 class CNNCifar10(nn.Module):
     def __init__(self, args):
         super(CNNCifar10, self).__init__()
@@ -154,10 +182,8 @@ def get_model(args):
         if not args.disable_dp:
             net_glob = ModuleValidator.fix(net_glob)
     elif args.model == 'mlp' and 'mnist' in args.dataset:  # both mnist and femnist
-        raise NotImplementedError
+        net_glob = MLP(args)
     elif args.model == 'cnn' and 'femnist' in args.dataset:
-        raise NotImplementedError
-    elif args.model == 'mlp' and 'cifar' in args.dataset:
         raise NotImplementedError
     elif 'sent140' in args.dataset:
         if args.model == 'lstm':

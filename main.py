@@ -67,7 +67,11 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
 
     # Init model
     global_model = get_model(args).to(device)
-    summary(global_model, input_size=(3, 32, 32))
+    if "cifar" in args.dataset:
+        summary(global_model, input_size=(3, 32, 32))
+    elif "mnist" in args.dataset:
+        summary(global_model, input_size=(1, 28, 28))
+
     restore_from_checkpoint(args, global_model, checkpoint_dir)
 
 
@@ -121,8 +125,8 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
     # Test the final model
     # 1. Disable the partial participation
     server.args.frac_participate = 1.
-    # 2. Call server.step(0) to obtain train/test results WITHOUT printing
-    train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = server.step(-1) # -1 disables local update
+    # 2. Call server.step(-1) to obtain train/test results WITHOUT update the model
+    train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = server.step(-1)
     # 3. Print the results
     print(
         f"After {args.epochs} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"

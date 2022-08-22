@@ -1,6 +1,4 @@
-args=(tune_DP_methods.py
-        #  algorithm configuration
-        --alg DP_FedRep
+args=(  --alg DP_FedRep
         #  model configuration
         --model cnn
         #  dataset configuration
@@ -19,10 +17,10 @@ args=(tune_DP_methods.py
         --dp_clip 1
         #  save/load configuration
         #  backend configuration
-        --gpu 0-1-2-3
         --use_ray
         --ray_gpu_fraction 0.3
         #  test configuration
+        --print_freq 2
         #  train configuration
         --batch_size 4000
         --MAX_PHYSICAL_BATCH_SIZE 100
@@ -32,6 +30,6 @@ args=(tune_DP_methods.py
         --lr-rep 1e-1
         --lr-head 1e-2
         --local_head_ep 15
-     )
+        )
 
-python "${args[@]}"
+CUDA_VISIBLE_DEVICES=0 python tune_DP_methods.py "${args[@]}"

@@ -107,29 +107,6 @@ def set_cuda(args):
     '''
     os.environ['CUDA_LAUNCH_BLOCKING']='1'
 
-    #### TODO: THIS IS NOT WORKING! ####
-
-    # gpus = args.gpu.split('-')
-    # negative_gpu = False
-    # for gpu in gpus:
-    #     if int(gpu) < 0:
-    #         negative_gpu = True
-    #
-    # if negative_gpu:
-    #     print(
-    #         f"Using CPU only"
-    #     )
-    #     os.environ["CUDA_VISIBLE_DEVICES"] = ""
-    #     args.n_gpus = 0
-    #     return 0
-    #
-    # n_gpus = len(gpus)
-    # gpus = ",".join(gpus)
-    # print(
-    #     f"Using GPUs {gpus}"
-    # )
-    # os.environ["CUDA_VISIBLE_DEVICES"] = gpus
-    # args.n_gpus = n_gpus
     args.n_gpus = torch.cuda.device_count()
     print(
         f"[ There are {args.n_gpus} GPUs available. ]"

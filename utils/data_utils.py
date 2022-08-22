@@ -36,6 +36,13 @@ TORCHVISION_DATASETS = {'mnist'         : datasets.MNIST,
                         'fashionmnist'  : datasets.FashionMNIST,
                         }
 
+KWARGS = {
+    'mnist'         : {},
+    'cifar10'       : {},
+    'cifar100'      : {},
+    'emnist'        : {"split": "mnist"},
+    'fashionmnist'  : {},
+}
 
 def prepare_dataloaders(args):
     #   For now, only CIFAR10/CIFAR100 are implemented.
@@ -259,8 +266,8 @@ def get_data(args, tokenizer=None):
     # The "dataset.transform" will be set when creating the dataloader from the dataset
     with FileLock(os.path.expanduser("~/.data.lock")):
         if args.dataset in TORCHVISION_DATASETS:
-            dataset_train = TORCHVISION_DATASETS[args.dataset](f'~/data/{args.dataset}', train=True, download=True)
-            dataset_test = TORCHVISION_DATASETS[args.dataset](f'~/data/{args.dataset}', train=False, download=True)
+            dataset_train = TORCHVISION_DATASETS[args.dataset](f'~/data/{args.dataset}', train=True, download=True, **KWARGS[args.dataset])
+            dataset_test = TORCHVISION_DATASETS[args.dataset](f'~/data/{args.dataset}', train=False, download=True, **KWARGS[args.dataset])
 
             dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user,
                                                        args.num_classes, args.sample_size_var)
@@ -559,7 +566,7 @@ class DatasetMultiplicity(Dataset):
         # assume that the original dataset (CIFAR10/CIFAR100/MNIST) performs no transform!
         img, target = self.d_split[item]
 
-        if not self._disable_multiplicity and self.multiplicity > 1:
+        if not self._disable_multiplicity and self.transform is not None and self.multiplicity > 1:
             # create multiple images from a single raw image with data augmentation
             imgs = torch.stack([self.transform(img) for _ in range(self.multiplicity)], dim=0)
             targets = torch.tensor(target).repeat(self.multiplicity)

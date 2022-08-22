@@ -1,13 +1,10 @@
-import os
-
 import ray
-import torch
 
 from main import main
 from options import args_parser
 from utils.ray_tune_utils import *
 from utils.common_utils import set_cuda
-
+from utils.common_utils import check_args
 
 def main_tune(config, args, checkpoint_dir=None):
     '''
@@ -83,6 +80,8 @@ if __name__ == '__main__':
     args = args_parser()
 
     n_gpus = set_cuda(args)
+
+    check_args(args)
 
     if n_gpus > 0:
         ray.init(num_gpus=n_gpus, log_to_driver=False)
