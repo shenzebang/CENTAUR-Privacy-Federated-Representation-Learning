@@ -7,27 +7,27 @@ def get_search_space_from_args(args):
     '''
     if args.alg == 'DP_FedRep':
         search_space = {
-            "lr": tune.grid_search([.05, .1, .15,]),
+            "lr": tune.grid_search([.01, .05, .1,]),
             # "lr": tune.grid_search([.1]),
             # "lr_head": tune.grid_search([.01, .02, .04, .08]),
             # tune.choice([.05, .1, .2]), #tune.sample_from(lambda _: 2 ** np.random.randint(-6, -3)),
             "C": tune.grid_search([1]),  # tune.sample_from(lambda _: 1),
             # "C": tune.grid_search([.25, .5, 1]),
-            "epochs": tune.grid_search([200, 300, 400, 500]),  # tune.loguniform(1e-4, 1e-1),
-            "local_ep": tune.grid_search([1, 2, 4, 8, 16]),  # tune.loguniform(1e-4, 1e-1),
-            "batch size": tune.grid_search([4000])
+            "epochs": tune.grid_search([400]),  # tune.loguniform(1e-4, 1e-1),
+            "local_ep": tune.grid_search([1, 2, 4, 8]),  # tune.loguniform(1e-4, 1e-1),
+            "batch size": tune.grid_search([50, 100, 500])
         }
     elif args.alg == 'DP_FedAvg_ft':
         search_space = {
-            "lr": tune.grid_search([.05, .1, .15,]),
+            "lr": tune.grid_search([.01, .05, .1, ]),
             # "lr": tune.grid_search([.1]),
             # "lr_head": tune.grid_search([.01, .02, .04, .08]),
             # tune.choice([.05, .1, .2]), #tune.sample_from(lambda _: 2 ** np.random.randint(-6, -3)),
-            # "C": tune.grid_search([.25, .5, 1]),  # tune.sample_from(lambda _: 1),
-            "C": tune.grid_search([1]),
-            "epochs": tune.grid_search([200, 300, 400, 500]),  # tune.loguniform(1e-4, 1e-1),
-            "local_ep": tune.grid_search([1, 2, 4, 8, 16]),  # tune.loguniform(1e-4, 1e-1),
-            "batch size": tune.grid_search([4000])
+            "C": tune.grid_search([1]),  # tune.sample_from(lambda _: 1),
+            # "C": tune.grid_search([.25, .5, 1]),
+            "epochs": tune.grid_search([400]),  # tune.loguniform(1e-4, 1e-1),
+            "local_ep": tune.grid_search([1, 2, 4, 8]),  # tune.loguniform(1e-4, 1e-1),
+            "batch size": tune.grid_search([50, 100, 500])
         }
     else:
         raise NotImplementedError
