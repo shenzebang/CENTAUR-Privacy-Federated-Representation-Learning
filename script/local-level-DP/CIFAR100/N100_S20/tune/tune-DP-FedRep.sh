@@ -23,7 +23,7 @@ args=(  --alg DP_FedRep
         --lr-head 1e-2
         --local_head_ep 15
         ## RAY[TUNE] parameters
-        --gpus_per_trial .33
+        --gpus_per_trial .5
         # PARAMETERS TO BE TUNED
         --lr 1e-1
         --epochs 100
