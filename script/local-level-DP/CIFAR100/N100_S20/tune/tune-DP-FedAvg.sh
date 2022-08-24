@@ -15,7 +15,7 @@ args=(  --alg DP_FedAvg_ft
         --delta 1e-5
         #  save/load configuration
         #  backend configuration
-        --MAX_PHYSICAL_BATCH_SIZE 100
+        --MAX_PHYSICAL_BATCH_SIZE 50
         #  test configuration
         #  train configuration
         --frac_participate 1.
