@@ -50,14 +50,14 @@ def ray_tune(args, num_samples=1, gpus_per_trial=1):
         tune.with_parameters(main_tune, args=args),
         resources_per_trial={"cpu": 2, "gpu": gpus_per_trial},
         config=search_space,
-        metric="test_acc",
+        metric="validation_acc",
         mode="max",
         num_samples=num_samples,
         scheduler=scheduler,
         log_to_file=True
     )
 
-    best_trial = result.get_best_trial("loss", "min", "last")
+    best_trial = result.get_best_trial("validation_acc", "max", "all")
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final validation loss: {}".format(
         best_trial.last_result["loss"]))
