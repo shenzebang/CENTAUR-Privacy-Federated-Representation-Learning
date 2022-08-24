@@ -79,8 +79,8 @@ For CIFAR10 and CIFAR100, the parameter $\delta$ of DP is fixed as $10^{-5}$.
 | ----------------------------- | ------------------- |
 | DP-FedRep ($\epsilon=1$)    | 0                 |
 | DP-FedAvg-ft ($\epsilon=1$) | 0                 |
-| FedRep                      | 0                 |
-| FedAvg-ft                   | 0                 |
+| FedRep                      | ZJU126            |
+| FedAvg-ft                   | ZJU20             |
 | Local-only                  | 0                 |
 
 ## TODOs
