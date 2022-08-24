@@ -1,14 +1,14 @@
 args=(--alg Local
     #  dataset configuration
-    --dataset cifar100
-    --num_classes 100
+    --dataset EMNIST
+    --num_classes 10
     #  model configuration
-    --model cnn
+    --model mlp
     #  experiment configuration
 #     --data_augmentation
     --epochs 1
     --num_users 1
-    --shard_per_user 100
+    --shard_per_user 10
     --seed 1
     --n_runs 1
     #  DP configuration

@@ -30,17 +30,18 @@ In the following, we explain several important flags.
   - `args.shard_per_user`: The maximum number of classes a single client can host, denoted by $S$.
   - `args.dataset`
   - `args.validation_ratio`: The ratio of the training dataset withheld for the purpose of validation.
-- Training related 
+- Training related
 
   - `args.lr`: The learning rate of local round on the clients, denoted by $\eta_l$.
   - `args.global_lr`: The learning rate of global round on the server, denoted by $\eta_g$. To better understand its meanining, let $\theta_i^{t+1}$ be the model returned from client $i$ after finishing the local updates on the $t^{th}$ round and let $C_g$ denotes the global update clipping threshold ($C_g<\infty$ in the `user-level-DP` setting and $C_g = \infty$ in the `local-level-DP` setting). $\mathcal{S}^t$ denotes the subset of clients that are active in the $t^{th}$ round. $\sigma$ stands for the noise multiplier (determined by the target DP configuration) and $W^t$ is an element-wise standard Gaussian noise matrix with appropariate size.
 
     $$
     \theta^{t+1} = \theta^{t} + \eta_g \cdot\left( \frac{1}{|\mathcal{S}^t|} \sum_{i \in \mathcal{S}^t} \mathrm{clip}(\theta_i^{t+1} - \theta^t; C_g) + \frac{\sigma C_g}{|\mathcal{S}^t|} W^t\right)
+
     $$
 
     A special case is `args.global_lr` set to 1, in which case the server simply averages the models returned from the clients after local updates. Note that $\mathrm{clip}(\cdot; C)$ denotes the clipping operator with parameter $C$.
-  - `args.batch_size`: The batch size of local round on the clients. 
+  - `args.batch_size`: The batch size of local round on the clients.
   - `args.local_ep`: The number of epochs in a single localround on the clients.
   - `args.frac_participate`: The fraction of users that will participate per global round, i.e. $\frac{|\mathcal{S}^t|}{N}$.
   - `args.epochs`: The number of global epochs that **a single client will participate**. The total number of global epochs is hence `args.epochs`/`args.frac_participate`.
@@ -64,11 +65,30 @@ Currently, we use [ray](https://github.com/ray-project/ray) to parallel the comp
 
 We summarize the experiment results as follows.
 
-[](https://)In the following table, the number of users $N$ is fixed as 100. $S$ (short for shard) stands for the maximum number classes a client can hold.
-For CIFAR10, the parameter $\delta$ of DP is fixed as $10^{-5}$.
+In the following tables, the number of users $N$ is fixed as 100. $S$ (short for shard) stands for the maximum number classes a client can hold.
+For CIFAR10 and CIFAR100, the parameter $\delta$ of DP is fixed as $10^{-5}$.
 
 
 | Datasets     | CIFAR10 ($S=2$) |
 | -------------- | ----------------- |
 | DP-FedRep    | 0               |
 | DP-FedAvg-ft | 0               |
+
+
+| Datasets                    | CIFAR100 ($S=20$) |
+| ----------------------------- | ------------------- |
+| DP-FedRep ($\epsilon=1$)    | 0                 |
+| DP-FedAvg-ft ($\epsilon=1$) | 0                 |
+| FedRep                      | 0                 |
+| FedAvg-ft                   | 0                 |
+| Local-only                  | 0                 |
+
+## TODOs
+
+- [ ]  The DeepMind type data augmentation does not work as well as expected. Find out why. A possible reason is that the current NN model is not overly "over-parameterized".
+- [ ]  Test MNIST, EMNIST, FashionMNIST
+- [ ]  Use Torch.multiprocessing to accelerate
+- [ ]  Test User-level DP
+- [ ]  Test PPSGD
+- [ ]  (optional) Add language task
+- [ ]  Survey the literature to look for baselines.

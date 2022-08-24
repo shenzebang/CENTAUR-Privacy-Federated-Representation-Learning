@@ -1,14 +1,14 @@
 args=(--alg Local
     #  dataset configuration
-    --dataset cifar100
-    --num_classes 100
+    --dataset fashionmnist
+    --num_classes 10
     #  model configuration
-    --model cnn
+    --model mlp
     #  experiment configuration
 #     --data_augmentation
     --epochs 1
     --num_users 1
-    --shard_per_user 100
+    --shard_per_user 10
     --seed 1
     --n_runs 1
     #  DP configuration
@@ -31,4 +31,4 @@ args=(--alg Local
     --momentum 0
     )
 
-CUDA_VISIBLE_DEVICES=0 python main.py "${args[@]}"
+CUDA_VISIBLE_DEVICES=1 python main.py "${args[@]}"

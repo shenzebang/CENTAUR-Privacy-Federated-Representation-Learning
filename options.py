@@ -91,7 +91,10 @@ def args_parser():
     parser.add_argument('--print_freq', type=int, default=10)
 
     # Dataset configuration
-    parser.add_argument('--dataset', type=str, default='mnist', help="name of dataset")
+    parser.add_argument('--dataset', type=str, default='mnist', help="name of dataset", choices=['cifar10',
+                                                                                                 'cifar100',
+                                                                                                 'emnist',
+                                                                                                 'fashionmnist'])
     parser.add_argument('--num_classes', type=int, default=10, help="number of classes")
     parser.add_argument('--num_channels', type=int, default=3, help="number of channels of imges")
     parser.add_argument('--validation_ratio', type=float, default=.1)
