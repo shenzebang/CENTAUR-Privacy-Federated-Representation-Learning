@@ -77,14 +77,11 @@ class ClientDPFedRep(Client):
 
         losses = []
         top1_acc = []
-        self.train_dataloader.dataset.disable_multiplicity()
-        ft_dataloader = prepare_ft_dataloader(self.args, self.device, self.model, self.train_dataloader.dataset.d_split); head=True
-        # ft_dataloader = self.train_dataloader; head = False
+        ft_dataloader = prepare_ft_dataloader(self.args, self.device, self.model, self.train_dataloader.dataset.d_split)
         for head_epoch in range(self.args.local_head_ep):
             for _batch_idx, (data, target) in enumerate(ft_dataloader):
                 data, target = data.to(self.device), target.to(self.device)
-                # data, target = flat_multiplicty_data(data.to(self.device), target.to(self.device))
-                output = self.model(data, head=head)
+                output = self.model(data, head=True)
                 loss = self.criterion(output, target)
                 loss.backward()
                 optimizer.step()
@@ -95,7 +92,6 @@ class ClientDPFedRep(Client):
                 labels = target.detach().cpu().numpy()
                 acc = accuracy(preds, labels)
                 top1_acc.append(acc)
-        self.train_dataloader.dataset.enable_multiplicity()
 
         del ft_dataloader
 

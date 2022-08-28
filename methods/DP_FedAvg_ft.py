@@ -1,8 +1,10 @@
 import copy
 import warnings
-
+import gc
 from opacus.utils.batch_memory_manager import wrap_data_loader
 from torch import optim
+
+from utils.data_utils import prepare_ft_dataloader
 
 from utils.common_utils import *
 from utils.ray_remote_worker import *
@@ -75,14 +77,13 @@ class ClientDPFedAvgFT(Client):
 
         # Todo: Create a new dataset to save time!
 
-        self.train_dataloader.dataset.disable_multiplicity()
-
+        ft_dataloader = prepare_ft_dataloader(self.args, self.device, self.model, self.train_dataloader.dataset.d_split)
         losses = []
         top1_acc = []
         for head_epoch in range(self.args.ft_ep):
-            for _batch_idx, (data, target) in enumerate(self.train_dataloader):
+            for _batch_idx, (data, target) in enumerate(ft_dataloader):
                 data, target = data.to(self.device), target.to(self.device)
-                output = model_head(data)
+                output = model_head(data, head=True)
                 loss = self.criterion(output, target)
                 loss.backward()
                 optimizer.step()
@@ -94,7 +95,7 @@ class ClientDPFedAvgFT(Client):
                 acc = accuracy(preds, labels)
                 top1_acc.append(acc)
 
-        self.train_dataloader.dataset.enable_multiplicity()
+        del ft_dataloader
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
 
@@ -140,13 +141,16 @@ class ServerDPFedAvgFT(Server):
         sub_step_users = self.divide_into_subgroups()
         results_mega_step = Results()
         for clients in sub_step_users:
+            gc.collect()
+            torch.cuda.empty_cache()
+
             # 1. Server broadcast the global model
             self.broadcast(clients)
             # 2. Server orchestrates the clients to perform local updates
             results_dict_sub_step = self.local_update(clients, epoch)
             # This step is to ensure the compatibility with the ray backend.
             for client, PE in zip(clients, results_dict_sub_step["PEs"]):
-                client.PE = PE
+                if client.idx == 0: client.PE = PE
             # 3. Server aggregate the local updates
             self.aggregate(results_dict_sub_step["sds"])
             results_mega_step.add(results_dict_sub_step)
@@ -155,5 +159,6 @@ class ServerDPFedAvgFT(Server):
                 self.accountant.step(
                     noise_multiplier=self.noise_multiplier, sample_rate=self.args.frac_participate
                 )
+
 
         return self.report(epoch, results_mega_step)
