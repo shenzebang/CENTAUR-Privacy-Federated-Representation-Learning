@@ -28,16 +28,17 @@ def seed_all(seed:int = 10):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-def make_private(args, privacy_engine: PrivacyEngine, model: nn.Module, optimizer: Optimizer, dataloader: DataLoader):
+def make_private(args, privacy_engine: PrivacyEngine, model: nn.Module, optimizer: Optimizer, dataloader: DataLoader, noise_multiplier: float = -1):
     if privacy_engine is None: # do nothing if the privacy engine is void
         return model, optimizer, dataloader
 
-    noise_multiplier = get_noise_multiplier(
-        target_epsilon=args.epsilon,
-        target_delta=args.delta,
-        sample_rate=dataloader.batch_size / len(dataloader.dataset),
-        epochs=args.epochs * args.local_ep
-    )
+    if noise_multiplier < 0:
+        noise_multiplier = get_noise_multiplier(
+            target_epsilon=args.epsilon,
+            target_delta=args.delta,
+            sample_rate=dataloader.batch_size / len(dataloader.dataset),
+            epochs=args.epochs * args.local_ep
+        )
 
     model, optimizer, dataloader = privacy_engine.make_private(
         module=model,

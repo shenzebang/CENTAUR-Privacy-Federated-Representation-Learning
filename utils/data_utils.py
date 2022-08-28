@@ -9,7 +9,7 @@ from torchvision import datasets
 from typing import List
 
 from models.transforms import *
-
+import torch.nn as nn
 import random
 import torch
 
@@ -44,6 +44,61 @@ KWARGS = {
     'emnist'        : {"split": "mnist"},
     'fashionmnist'  : {},
 }
+
+class DatasetSplit(Dataset):
+    def __init__(self, dataset: Dataset, sample_ids: List[int], name=None):
+        self.dataset = dataset
+        self.sample_ids = sample_ids
+        self.name = name
+
+    def __len__(self):
+        return len(self.sample_ids)
+
+    def __getitem__(self, item):
+        if self.name is None:
+            image, label = self.dataset[self.sample_ids[item]]
+        elif 'femnist' in self.name:
+            image = torch.reshape(torch.tensor(self.dataset['x'][item]), (1, 28, 28))
+            label = torch.tensor(self.dataset['y'][item])
+        elif 'sent140' in self.name:
+            image = self.dataset['x'][item]
+            label = self.dataset['y'][item]
+        elif 'harass' in self.name:
+            return self.dataset[self.sample_ids[item]]
+        else:
+            image, label = self.dataset[self.sample_ids[item]]
+        return image, label
+
+class DatasetMultiplicity(Dataset):
+    def __init__(self, d_split: DatasetSplit, transform=None, multiplicity: int = 0):
+        assert d_split.name == None  # only CIFAR10/CIFAR100/MNIST are supported for now
+        self.d_split = d_split
+        self.transform = transform
+        self.multiplicity = multiplicity
+        self._disable_multiplicity = False
+
+    def __len__(self):
+        return len(self.d_split)
+
+    def __getitem__(self, item):
+        # assume that the original dataset (CIFAR10/CIFAR100/MNIST) performs no transform!
+        img, target = self.d_split[item]
+
+        if not self._disable_multiplicity and self.transform is not None and self.multiplicity > 1:
+            # create multiple images from a single raw image with data augmentation
+            imgs = torch.stack([self.transform(img) for _ in range(self.multiplicity)], dim=0)
+            targets = torch.tensor(target).repeat(self.multiplicity)
+            return imgs, targets
+        else:
+            if self.transform is not None:
+                img, target = self.transform(img), torch.tensor(target)
+            return img, target
+
+    def disable_multiplicity(self):
+        self._disable_multiplicity = True
+
+    def enable_multiplicity(self):
+        self._disable_multiplicity = False
 
 def prepare_dataloaders(args):
     #   For now, only CIFAR10/CIFAR100 are implemented.
@@ -261,6 +316,32 @@ def prepare_dataloaders(args):
 
 
     return train_dataloaders, validation_dataloaders, test_dataloaders
+
+def prepare_ft_dataloader(args, device, model: nn.Module, d_split: DatasetSplit):
+    # create a TensorDataset
+    iter_ground_dataset_train = iter(d_split)
+    inputs = []
+    targets = []
+    for img, target in iter_ground_dataset_train:
+        inputs.append(img) # the input consists of the activations from the last layer
+        targets.append(target)
+
+    # for img, target in iter_ground_dataset_train:
+    #     inputs.append(model(img.to(device), representation=True)) # the input consists of the activations from the last layer
+    #     targets.append(target)
+    with torch.autograd.no_grad():
+        inputs = model(torch.stack(inputs, dim=0).to(device), representation=True)
+    targets = torch.tensor(targets)
+    ft_dataset = torch.utils.data.TensorDataset(inputs, targets)
+    ft_dataloder = DataLoader(ft_dataset,
+               batch_size=min(args.batch_size, len(ft_dataset)),
+               num_workers=0,
+               # pin_memory=True,
+               shuffle=True
+               )
+
+    return ft_dataloder
+
 
 
 def get_data(args, tokenizer=None):
@@ -528,60 +609,7 @@ def read_data(train_data_dir, test_data_dir):
 
     return clients, groups, train_data, test_data
 
-class DatasetSplit(Dataset):
-    def __init__(self, dataset: Dataset, sample_ids: List[int], name=None):
-        self.dataset = dataset
-        self.sample_ids = sample_ids
-        self.name = name
 
-    def __len__(self):
-        return len(self.sample_ids)
-
-    def __getitem__(self, item):
-        if self.name is None:
-            image, label = self.dataset[self.sample_ids[item]]
-        elif 'femnist' in self.name:
-            image = torch.reshape(torch.tensor(self.dataset['x'][item]), (1, 28, 28))
-            label = torch.tensor(self.dataset['y'][item])
-        elif 'sent140' in self.name:
-            image = self.dataset['x'][item]
-            label = self.dataset['y'][item]
-        elif 'harass' in self.name:
-            return self.dataset[self.sample_ids[item]]
-        else:
-            image, label = self.dataset[self.sample_ids[item]]
-        return image, label
-
-class DatasetMultiplicity(Dataset):
-    def __init__(self, d_split: DatasetSplit, transform=None, multiplicity: int = 0):
-        assert d_split.name == None  # only CIFAR10/CIFAR100/MNIST are supported for now
-        self.d_split = d_split
-        self.transform = transform
-        self.multiplicity = multiplicity
-        self._disable_multiplicity = False
-
-    def __len__(self):
-        return len(self.d_split)
-
-    def __getitem__(self, item):
-        # assume that the original dataset (CIFAR10/CIFAR100/MNIST) performs no transform!
-        img, target = self.d_split[item]
-
-        if not self._disable_multiplicity and self.transform is not None and self.multiplicity > 1:
-            # create multiple images from a single raw image with data augmentation
-            imgs = torch.stack([self.transform(img) for _ in range(self.multiplicity)], dim=0)
-            targets = torch.tensor(target).repeat(self.multiplicity)
-            return imgs, targets
-        else:
-            if self.transform is not None:
-                img, target = self.transform(img), torch.tensor(target)
-            return img, target
-
-    def disable_multiplicity(self):
-        self._disable_multiplicity = True
-
-    def enable_multiplicity(self):
-        self._disable_multiplicity = False
 
 class Triage(Dataset):
     def __init__(self, dataframe, tokenizer, max_len):

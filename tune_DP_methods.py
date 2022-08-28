@@ -59,10 +59,12 @@ def ray_tune(args, num_samples=1, gpus_per_trial=1):
 
     best_trial = result.get_best_trial("validation_acc", "max", "all")
     print("Best trial config: {}".format(best_trial.config))
-    print("Best trial final validation loss: {}".format(
-        best_trial.last_result["loss"]))
-    print("Best trial final validation accuracy: {}".format(
-        best_trial.last_result["accuracy"]))
+    print("Best trial final validation loss: {} and accuracy {}".format(
+        best_trial.last_result["validation_loss"],
+        best_trial.last_result["validation_acc"]))
+    print("Best trial final test loss: {} and accuracy: {}".format(
+        best_trial.last_result["test_loss"],
+        best_trial.last_result["test_acc"]))
 
     # if ray.util.client.ray.is_connected():
     #     # If using Ray Client, we want to make sure checkpoint access

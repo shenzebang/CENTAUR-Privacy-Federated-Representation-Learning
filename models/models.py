@@ -119,14 +119,30 @@ class CNNCifar100(nn.Module):
                             ['conv1.weight', 'conv1.bias'],
                             ]
 
-    def forward(self, x):
+    def forward(self, x, representation=False, head=False):
+        if representation and head:
+            raise ValueError("At most one of representation and head can be True!")
+
+        if head:
+            return self.fc3(x)
+
+        if x.ndim == 4:
+            is_batch = True
+        elif x.ndim == 3:
+            is_batch = False
+        else:
+            raise ValueError("The input should be a 3 or 4 dimension tensor.")
+
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 128 * 5 * 5)
+        x = x.view(-1, 128 * 5 * 5) if is_batch else x.view(128 * 5 * 5)
         x = F.relu(self.fc1(x))
         x = self.drop(F.relu(self.fc2(x)))
-        x = self.fc3(x)
-        return x
+        if representation: # the last layer (head) is omitted
+            return x
+        else:
+            return self.fc3(x)
+
 
 class CNNCifar100_BN(nn.Module):  # with batch normalization
     def __init__(self, args):

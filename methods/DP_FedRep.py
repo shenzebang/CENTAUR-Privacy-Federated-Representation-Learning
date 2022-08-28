@@ -5,6 +5,7 @@ import warnings
 from opacus.utils.batch_memory_manager import wrap_data_loader
 from torch import optim
 
+from utils.data_utils import prepare_ft_dataloader
 from utils.common_utils import *
 from utils.ray_remote_worker import *
 from methods.api import Server, Client, Results
@@ -24,7 +25,7 @@ class ClientDPFedRep(Client):
                               momentum=self.args.momentum,
                               weight_decay=self.args.weight_decay
                               )
-        model, optimizer, train_loader = make_private(self.args, self.PE, self.model, optimizer, self.train_dataloader)
+        model, optimizer, train_loader = make_private(self.args, self.PE, self.model, optimizer, self.train_dataloader, self.noise_multiplier)
 
 
         losses = []
@@ -77,10 +78,13 @@ class ClientDPFedRep(Client):
         losses = []
         top1_acc = []
         self.train_dataloader.dataset.disable_multiplicity()
+        ft_dataloader = prepare_ft_dataloader(self.args, self.device, self.model, self.train_dataloader.dataset.d_split); head=True
+        # ft_dataloader = self.train_dataloader; head = False
         for head_epoch in range(self.args.local_head_ep):
-            for _batch_idx, (data, target) in enumerate(self.train_dataloader):
-                data, target = flat_multiplicty_data(data.to(self.device), target.to(self.device))
-                output = self.model(data)
+            for _batch_idx, (data, target) in enumerate(ft_dataloader):
+                data, target = data.to(self.device), target.to(self.device)
+                # data, target = flat_multiplicty_data(data.to(self.device), target.to(self.device))
+                output = self.model(data, head=head)
                 loss = self.criterion(output, target)
                 loss.backward()
                 optimizer.step()
@@ -157,6 +161,8 @@ class ServerDPFedRep(Server):
                 self.accountant.step(
                     noise_multiplier=self.noise_multiplier, sample_rate=self.args.frac_participate
                 )
+
+            torch.cuda.empty_cache()
 
         return self.report(epoch, results_mega_step)
 

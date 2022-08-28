@@ -59,8 +59,15 @@ class Client:
         self.device = device
         self.criterion = nn.CrossEntropyLoss()
         self.PE = None
+        self.noise_multiplier = -1
         if not args.disable_dp and args.dp_type == "local-level-DP":
             self.PE = PrivacyEngine(secure_mode=args.secure_rng)
+            self.noise_multiplier = get_noise_multiplier(
+            target_epsilon=args.epsilon,
+            target_delta=args.delta,
+            sample_rate=1. / len(train_dataloader),
+            epochs=args.epochs * args.local_ep
+            )
 
     def _eval(self, model: nn.Module, dataloader: DataLoader):
         model.eval()
