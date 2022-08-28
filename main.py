@@ -129,10 +129,17 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
     train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = server.step(-1)
     # 3. Print the results
     print(
-        f"After {args.epochs} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
-        f"Train Loss: {train_loss:.2f} Train Acc@1: {train_acc * 100:.2f} \t"
+        f"[ Final Model Performance ] After {args.epochs} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
         f"Validation Loss: {validation_loss:.2f} Validation Acc@1: {validation_acc * 100:.2f} \t"
         f"Test loss: {test_loss:.2f} Test acc@1: {test_acc * 100:.2f} "
+    )
+
+    # Report the model with the best validation accuracy
+    index = validation_accs.index(max(validation_accs))
+    print(
+        f"[ Performance of Model with the Best Validation Accuracy ] After {index} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
+        f"Validation Loss: {validation_losses[index]:.2f} Validation Acc@1: {validation_accs[index] * 100:.2f} \t"
+        f"Test loss: {test_losses[index]:.2f} Test acc@1: {test_accs[index] * 100:.2f} "
     )
 
     # return results
