@@ -77,10 +77,10 @@ For CIFAR10 and CIFAR100, the parameter $\delta$ of DP is fixed as $10^{-5}$.
 
 | Datasets                    | CIFAR100 ($S=20$) |
 | ----------------------------- | ------------------- |
-| DP-FedRep ($\epsilon=1$)    | 0                 |
-| DP-FedAvg-ft ($\epsilon=1$) | 0                 |
-| FedRep                      | ZJU126            |
-| FedAvg-ft                   | ZJU20             |
+| DP-FedRep ($\epsilon=1$)    | 30.76%            |
+| DP-FedAvg-ft ($\epsilon=1$) | ZJU22             |
+| FedRep                      | 52.56%            |
+| FedAvg-ft                   | 62.61%            |
 | Local-only                  | 0                 |
 
 ## TODOs
@@ -92,3 +92,37 @@ For CIFAR10 and CIFAR100, the parameter $\delta$ of DP is fixed as $10^{-5}$.
 - [ ]  Test PPSGD
 - [ ]  (optional) Add language task
 - [ ]  Survey the literature to look for baselines.
+- [ ]  Report the testing accuracy that corresponds to the best validation accuracy.
+
+## Hyper-parameter Tuning
+
+### Search Space
+
+
+|              | CIFAR100 ($S=20$)                   |
+| -------------- | ------------------------------------- |
+| "lr"         | tune.grid_search([.01, .05, .1, ]), |
+| "C"          | tune.grid_search([1]),              |
+| "epochs"     | tune.grid_search([400]),            |
+| "local_ep"   | tune.grid_search([1, 2, 4, 8]),     |
+| "batch size" | tune.grid_search([50, 100, 500])    |
+
+
+|              | CIFAR100 ($S=5$)                    |
+| -------------- | ------------------------------------- |
+| "lr"         | tune.grid_search([.01, .05, .1, ]), |
+| "C"          | tune.grid_search([1]),              |
+| "epochs"     | tune.grid_search([400]),            |
+| "local_ep"   | tune.grid_search([1, 2, 4, 8]),     |
+| "batch size" | tune.grid_search([50, 100, 500])    |
+
+### Best Hyper-parameters
+
+
+| Datasets                    | CIFAR100 ($S=20$)                                                       |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| FedAvg-ft                   | {'lr': 0.10, 'C': 1, 'epochs': 400, 'local_ep': 1, 'batch size': 100}   |
+| FedRep                      | {'lr': 0.05, 'C': 1, 'epochs': 400, 'local_ep': 1, 'batch size': 50}    |
+| DP-FedAvg-ft ($\epsilon=1$) | {'lr': 0.01, 'C': 1.0, 'epochs': 400, 'local_ep': 2, 'batch size': 100} |
+| DP-FedRep ($\epsilon=1$)    | {'lr': 0.10, 'C': 0.1, 'epochs': 400, 'local_ep': 4, 'batch size': 500} |
+| DP-FedRep ($\epsilon=1$)    | {'lr': 0.01, 'C': 0.5, 'epochs': 200, 'local_ep': 2, 'batch size': 100} |

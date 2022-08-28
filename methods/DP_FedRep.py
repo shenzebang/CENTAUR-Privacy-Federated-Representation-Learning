@@ -1,5 +1,5 @@
 import copy
-import random
+import gc
 import warnings
 
 from opacus.utils.batch_memory_manager import wrap_data_loader
@@ -58,7 +58,7 @@ class ClientDPFedRep(Client):
 
         # Using PE to privitize the model will change the keys of model.state_dict()
         # This subroutine restores the keys to the non-DP model
-        self.model.load_state_dict(fix_DP_model_keys(self.args, model))
+        # self.model.load_state_dict(fix_DP_model_keys(self.args, model))
 
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
@@ -96,6 +96,9 @@ class ClientDPFedRep(Client):
                 acc = accuracy(preds, labels)
                 top1_acc.append(acc)
         self.train_dataloader.dataset.enable_multiplicity()
+
+        del ft_dataloader
+
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
 
@@ -144,6 +147,10 @@ class ServerDPFedRep(Server):
         sub_step_users = self.divide_into_subgroups()
         results_mega_step = Results()
         for clients in sub_step_users:
+
+            gc.collect()
+            torch.cuda.empty_cache()
+
             # 1. Server broadcast the global model
             self.broadcast(clients)
             # 2. Server orchestrates the clients to perform local updates
@@ -152,7 +159,7 @@ class ServerDPFedRep(Server):
             if self.args.use_ray:
                 for client, sd, PE in zip(clients, results_dict_sub_step["sds"], results_dict_sub_step["PEs"]):
                     client.model.load_state_dict(sd)
-                    client.PE = PE
+                    if client.idx == 0: client.PE = PE
             # 3. Server aggregate the local updates
             self.aggregate(results_dict_sub_step["sds"])
             results_mega_step.add(results_dict_sub_step)
@@ -161,8 +168,6 @@ class ServerDPFedRep(Server):
                 self.accountant.step(
                     noise_multiplier=self.noise_multiplier, sample_rate=self.args.frac_participate
                 )
-
-            torch.cuda.empty_cache()
 
         return self.report(epoch, results_mega_step)
 

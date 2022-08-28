@@ -3,6 +3,7 @@ import itertools
 
 import torch.cuda
 
+import gc
 
 class Worker:
     def __init__(self, n_gpus: int, wid: int):
@@ -15,6 +16,7 @@ class Worker:
         for client in clients:
             result.append(client.step(epoch))
 
+        gc.collect()
         torch.cuda.empty_cache()
         return result
 

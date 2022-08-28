@@ -99,6 +99,7 @@ class Client:
             print(
                 f"Client {self.idx} finished."
             )
+
         result_dict = {
             "train loss": train_loss,
             "train acc": train_acc,
@@ -107,7 +108,7 @@ class Client:
             "test loss": test_loss,
             "test acc": test_acc,
             "sd": self.model.state_dict(),
-            "PE": self.PE
+            "PE": self.PE if self.idx == 0 else None
         }
         return result_dict
 
@@ -170,8 +171,10 @@ class Server:
     def report(self, epoch, results: Results):
         train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = results.mean()
         if not self.args.disable_dp:
-            accountant = self.accountant if self.accountant is not None else self.clients[0].PE.accountant
-
+            for client in self.clients: # only client[0] maintains the accountant history
+                if client.idx == 0:
+                    accountant = self.accountant if self.accountant is not None else client.PE.accountant
+                    break
 
         if (epoch % self.args.print_freq == 0 or epoch > self.args.epochs - 5) and epoch >= 0:
             if not self.args.disable_dp:

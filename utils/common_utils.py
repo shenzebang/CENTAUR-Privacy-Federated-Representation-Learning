@@ -194,11 +194,11 @@ def server_update_with_clip(sd: OrderedDict, sd_clients: List[OrderedDict], keys
     '''
     if len(keys) == 0: keys = sd.keys()
 
-    if clip_threshold <= 0:
+    if clip_threshold <= 0: # The server performs no clip.
         for key in keys:
             param_clients_key = [sd_client[key] for sd_client in sd_clients]
             sd[key] = sd[key] * (1 - global_lr) + global_lr * torch.mean(torch.stack(param_clients_key, dim=0), dim=0)
-    else:
+    else: # The server performs clip.
         diff_clients = [ {} for _ in range(len(sd_clients)) ]
         norm_diff_clients = [ torch.ones(1) ] * len(sd_clients)
         # 1. Calculate the norm of differences
