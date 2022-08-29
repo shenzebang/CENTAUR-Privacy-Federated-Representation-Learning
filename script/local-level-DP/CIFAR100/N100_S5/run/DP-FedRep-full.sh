@@ -24,7 +24,7 @@ args=(--alg DP_FedRep
     #  train configuration
     --frac_participate 1
     --batch_size 100
-    --MAX_PHYSICAL_BATCH_SIZE 25 
+    --MAX_PHYSICAL_BATCH_SIZE 25
     --local_ep 1
     # --verbose
     # algorithm specific configuration

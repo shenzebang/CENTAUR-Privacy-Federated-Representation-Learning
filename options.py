@@ -40,7 +40,6 @@ def args_parser():
     parser.add_argument('--load_fed', type=str, default='n', help='define pretrained federated model path')
     parser.add_argument('--results_save', type=str, default='runA', help='define fed results save folder')
     parser.add_argument('--save_every', type=int, default=50, help='how often to save models')
-    parser.add_argument('--aggr', type=str, default='avg', help='aggregation method')
     parser.add_argument('--trim_frac', type=float, default=0.2, help='trimmed fraction for trimmed mean')
     parser.add_argument('--dir', type=str, default='default', help='saved results directory')
     parser.add_argument('--model_dir', type=str, default='DoNotSave', help='saved models directory')
@@ -84,8 +83,9 @@ def args_parser():
                         metavar='W', help='weight decay (default: 1e-4)')
     parser.add_argument('--batch_size', type=int, default=128, help="train batch size")
     parser.add_argument('--verbose', action='store_true')
+    parser.add_argument('--aggr', type=str, default='mean', help="name of dataset", choices=['mean', 'median', 'trimmed_mean'])
 
-    # Test configuration
+                                                                                                 # Test configuration
     parser.add_argument('--test_batch_size', type=int, default=128, help="test batch size")
     parser.add_argument('--bs', type=int, default=128, help="test batch size")
     parser.add_argument('--print_freq', type=int, default=10)
