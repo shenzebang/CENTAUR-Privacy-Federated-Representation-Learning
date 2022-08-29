@@ -15,23 +15,22 @@ args=(--alg DP_FedRep
     #      --disable-dp
     --epsilon 1
     --delta 1e-5
-    --dp_clip 1
+    --dp_clip .5
     #  save/load configuration
     #  backend configuration
-#     --gpu 0-1-2-3
-#     --use_ray
-#     --ray_gpu_fraction .3
+    --use_ray
+    --ray_gpu_fraction .25
     #  test configuration
     #  train configuration
     --frac_participate 1
-    --batch_size 4000
-    --MAX_PHYSICAL_BATCH_SIZE 64
+    --batch_size 100
+    --MAX_PHYSICAL_BATCH_SIZE 25 
     --local_ep 1
     # --verbose
     # algorithm specific configuration
-    --lr 1e-1
+    --lr 1e-2
     --lr-head 1e-2
     --local_head_ep 15
     )
 
-CUDA_VISIBLE_DEVICES=3 python main.py "${args[@]}"
+CUDA_VISIBLE_DEVICES=0,1,2,3 python main.py "${args[@]}"
