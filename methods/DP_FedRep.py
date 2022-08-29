@@ -132,7 +132,8 @@ class ServerDPFedRep(Server):
 
         noise_level = self.args.dp_clip * self.noise_multiplier
 
-        sd = server_update_with_clip(sd, sds_client, self.representation_keys, self.clip_threshold, self.args.global_lr, noise_level)
+        sd = server_update_with_clip(sd, sds_client, self.representation_keys, self.clip_threshold,
+                                     self.args.global_lr, noise_level, self.args.aggr)
 
         self.model.load_state_dict(sd)
 
