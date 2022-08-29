@@ -166,12 +166,12 @@ def check_args(args):
         )
         args.data_augmentation_multiplicity = 0
 
-    if args.use_ray and args.frac_participate < 1:
-        print(
-            "[ WARNING: The is a bug in the partial participating case with ray backend  ]",
-            "[ Automatically set args.use_ray to False. ]"
-        )
-        args.use_ray = False
+    # if args.use_ray and args.frac_participate < 1:
+    #     print(
+    #         "[ WARNING: The is a bug in the partial participating case with ray backend  ]",
+    #         "[ Automatically set args.use_ray to False. ]"
+    #     )
+    #     args.use_ray = False
 
 def restore_from_checkpoint(args, global_model, checkpoint_dir=None):
     if checkpoint_dir is not None:
@@ -188,16 +188,36 @@ def restore_from_checkpoint(args, global_model, checkpoint_dir=None):
                 f"Load checkpoint (model_state) from file {checkpoint}."
             )
 
-def server_update_with_clip(sd: OrderedDict, sd_clients: List[OrderedDict], keys: List[str], clip_threshold=-1, global_lr=1, noise_level=0):
+
+def trimmed_mean(x, dim, cut_percentage=.1):
+    n = x.shape[dim]
+    n_cut = int(n * cut_percentage)
+    x = torch.topk(x, n - n_cut, dim=dim, largest=True).values
+    x = torch.topk(x, n - 2 * n_cut, dim=dim, largest=False).values
+    return torch.mean(x, dim=dim)
+
+AGGR_OPS = {
+    "mean"  : torch.mean,
+    "median": lambda x, dim: torch.median(x, dim).values,
+    "trimmed_mean": trimmed_mean
+}
+
+
+def server_update_with_clip(sd: OrderedDict, sd_clients: List[OrderedDict], keys: List[str],
+                            clip_threshold=-1, global_lr=1, noise_level=0, aggr='mean'):
     '''
         Only the key in "keys" will be updated. If "keys" is empty, all keys will be updated.
     '''
+    # if cut_percentage > .49:
+    #     raise ValueError("The cut percentage is over 49\%!")
+
     if len(keys) == 0: keys = sd.keys()
 
     if clip_threshold <= 0: # The server performs no clip.
+        aggr_op = AGGR_OPS[aggr]
         for key in keys:
             param_clients_key = [sd_client[key] for sd_client in sd_clients]
-            sd[key] = sd[key] * (1 - global_lr) + global_lr * torch.mean(torch.stack(param_clients_key, dim=0), dim=0)
+            sd[key] = sd[key] * (1 - global_lr) + global_lr * aggr_op(torch.stack(param_clients_key, dim=0), dim=0)
     else: # The server performs clip.
         diff_clients = [ {} for _ in range(len(sd_clients)) ]
         norm_diff_clients = [ torch.ones(1) ] * len(sd_clients)
