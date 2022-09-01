@@ -14,7 +14,7 @@ args=(--alg DP_FedAvg_ft
     #      --disable-dp
     --epsilon 1
     --delta 1e-5
-    --dp_clip .1
+    --dp_clip 1
     #  save/load configuration
     #  backend configuration
     --use_ray
@@ -22,12 +22,12 @@ args=(--alg DP_FedAvg_ft
     #  test configuration
     #  train configuration
     --frac_participate 1
-    --batch_size 500
+    --batch_size 100
     --MAX_PHYSICAL_BATCH_SIZE 25
-    --local_ep 4
+    --local_ep 1
     # --verbose
     # algorithm specific configuration
-    --lr .1
+    --lr .01
     --lr-head 1e-2
     --ft-ep 15
     )
