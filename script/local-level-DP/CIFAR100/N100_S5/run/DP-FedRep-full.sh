@@ -8,14 +8,14 @@ args=(--alg DP_FedRep
     #  experiment configuration
     #         --data_augmentation
     #         --data_augmentation_multiplicity 16
-    --epochs 400
+    --epochs 500
     --seed 1
     --num_users 100
     #  DP configuration
     #      --disable-dp
     --epsilon 1
     --delta 1e-5
-    --dp_clip .5
+    --dp_clip .25
     #  save/load configuration
     #  backend configuration
     --use_ray
@@ -28,7 +28,7 @@ args=(--alg DP_FedRep
     --local_ep 1
     # --verbose
     # algorithm specific configuration
-    --lr 1e-2
+    --lr 0.005
     --lr-head 1e-2
     --local_head_ep 15
     )
