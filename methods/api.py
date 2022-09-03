@@ -69,15 +69,17 @@ class Client:
                 sample_rate=1. / len(train_dataloader),
                 epochs=args.epochs * args.local_ep
                 )
-                print(
-                    f"[ To achieve ({args.epsilon}, {args.delta}) local-level DP,"
-                    f" the noise multiplier is automatically set to {self.noise_multiplier} ]"
-                )
+                if self.idx == 0:
+                    print(
+                        f"[ To achieve ({args.epsilon}, {args.delta}) local-level DP,"
+                        f" the noise multiplier is automatically set to {self.noise_multiplier} ]"
+                    )
             else:
                 self.noise_multiplier = self.args.noise_multiplier
-                print(
-                    f"[ local-level DP. The noise multiplier is manually set to {self.noise_multiplier} ]"
-                )
+                if self.idx == 0:
+                    print(
+                        f"[ local-level DP. The noise multiplier is manually set to {self.noise_multiplier} ]"
+                    )
             # self.noise_multiplier = 0
 
     def _eval(self, model: nn.Module, dataloader: DataLoader):
