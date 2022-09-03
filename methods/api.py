@@ -62,12 +62,23 @@ class Client:
         self.noise_multiplier = -1
         if not args.disable_dp and args.dp_type == "local-level-DP":
             self.PE = PrivacyEngine(secure_mode=args.secure_rng)
-            self.noise_multiplier = get_noise_multiplier(
-            target_epsilon=args.epsilon,
-            target_delta=args.delta,
-            sample_rate=1. / len(train_dataloader),
-            epochs=args.epochs * args.local_ep
-            )
+            if self.args.noise_multiplier < 0:
+                self.noise_multiplier = get_noise_multiplier(
+                target_epsilon=args.epsilon,
+                target_delta=args.delta,
+                sample_rate=1. / len(train_dataloader),
+                epochs=args.epochs * args.local_ep
+                )
+                print(
+                    f"[ To achieve ({args.epsilon}, {args.delta}) local-level DP,"
+                    f" the noise multiplier is automatically set to {self.noise_multiplier} ]"
+                )
+            else:
+                self.noise_multiplier = self.args.noise_multiplier
+                print(
+                    f"[ local-level DP. The noise multiplier is manually set to {self.noise_multiplier} ]"
+                )
+            # self.noise_multiplier = 0
 
     def _eval(self, model: nn.Module, dataloader: DataLoader):
         model.eval()
@@ -125,15 +136,21 @@ class Server:
         self.remote_workers = remote_workers
         if not args.disable_dp and args.dp_type == "user-level-DP":
             self.accountant = RDPAccountant()
-            self.noise_multiplier = get_noise_multiplier(
-                target_epsilon=args.epsilon,
-                target_delta=args.delta,
-                sample_rate=args.frac_participate,
-                epochs=args.epochs * int(1 / args.frac_participate)
-            )
-            print(
-                f"[ To achieve ({args.epsilon}, {args.delta}) user-level DP, the noise multiplier is set to {self.noise_multiplier} ]"
-            )
+            if self.args.noise_multiplier < 0:
+                self.noise_multiplier = get_noise_multiplier(
+                    target_epsilon=args.epsilon,
+                    target_delta=args.delta,
+                    sample_rate=args.frac_participate,
+                    epochs=args.epochs * int(1 / args.frac_participate)
+                )
+                print(
+                    f"[ To achieve ({args.epsilon}, {args.delta}) user-level DP, the noise multiplier is set to {self.noise_multiplier} ]"
+                )
+            else:
+                self.noise_multiplier = self.args.noise_multiplier
+                print(
+                    f"[ user-level DP. The noise multiplier is manually set to {self.noise_multiplier} ]"
+                )
             self.clip_threshold = self.args.dp_clip
         else:
             self.noise_multiplier = 0
@@ -173,11 +190,12 @@ class Server:
         if not self.args.disable_dp:
             for client in self.clients: # only client[0] maintains the accountant history
                 if client.idx == 0:
-                    accountant = self.accountant if self.accountant is not None else client.PE.accountant
+                    accountant = self.accountant if self.args.dp_type == 'user-level-DP' else client.PE.accountant
+                    noise_multiplier = self.noise_multiplier if self.args.dp_type == 'user-level-DP' else client.noise_multiplier
                     break
 
         if (epoch % self.args.print_freq == 0 or epoch > self.args.epochs - 5) and epoch >= 0:
-            if not self.args.disable_dp:
+            if not self.args.disable_dp and noise_multiplier > 0:
                 epsilon, best_alpha = accountant.get_privacy_spent(
                     delta=self.args.delta
                 )
@@ -208,19 +226,25 @@ class Server:
             else:
                 print(
                     f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
-                    f"Train Epoch: {epoch} \t Loss: {train_loss:.6f}"
-                    f"\t Acc@1: {train_acc * 100:.6f} "
+                    f"Epoch: {epoch} \t"
+                    f"Loss: {train_loss:.2f} "
+                    f"Acc@1: {train_acc * 100:.2f} "
+                    "[ TRAIN ]"
                       )
                 print(
                     f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
-                    f"Validation Epoch: {epoch} \t Loss: {validation_loss:.6f}"
-                    f"\t Acc@1: {validation_acc * 100:.6f} "
+                    f"Epoch: {epoch} \t"
+                    f"Loss: {validation_loss:.2f} "
+                    f"Acc@1: {validation_acc * 100:.2f} "
+                    "[ VALIDATION ]"
                 )
                 print(
                     f"On {self.args.dataset} using {self.args.alg} with {self.args.frac_participate * 100}\% par. rate, "
-                    f"Test Epoch: {epoch} \t Loss: {test_loss:.6f}"
-                    f"\t Acc@1: {test_acc * 100:.6f} "
-                      )
+                    f"Epoch: {epoch} \t"
+                    f"loss: {test_loss:.2f} "
+                    f"acc@1: {test_acc * 100:.2f} "
+                    "[ TEST ]"
+                )
         return train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc
 
     def divide_into_subgroups(self):

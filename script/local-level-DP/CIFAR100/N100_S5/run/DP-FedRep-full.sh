@@ -15,7 +15,7 @@ args=(--alg DP_FedRep
     #      --disable-dp
     --epsilon 1
     --delta 1e-5
-    --dp_clip .25
+    --dp_clip .5
     #  save/load configuration
     #  backend configuration
     --use_ray

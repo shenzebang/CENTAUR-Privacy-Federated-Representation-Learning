@@ -54,6 +54,10 @@ def args_parser():
     parser.add_argument('--dp_clip', type=float, default=1, help='clipping norm for DP')
     parser.add_argument('--epsilon', type=float, default=-1, help='privacy budget')
     parser.add_argument('--delta', type=float, default=1e-6, help='privacy guarantee probability')
+    parser.add_argument('--noise_multiplier', type=float, default=-1,
+                        help='If noise_multiplier < 0, set the noise multiplier of the PrivacyEngine automatically'
+                             'according to the DP budget, else overwrite the noise multiplier manually.'
+                        )
     parser.add_argument(
         "--disable-dp",
         action="store_true",
