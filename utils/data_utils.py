@@ -19,7 +19,8 @@ TRANSFORM_NORMALIZATION = {
     "mnist"         : trans_mnist_normalization,
     "cifar10"       : trans_cifar10_normalization,
     "cifar100"      : trans_cifar100_normalization,
-    "emnist"        : trans_emnist_normalization,
+    "emnist_l"      : trans_emnist_normalization,
+    "emnist_d"      : trans_emnist_normalization,
     "fashionmnist"  : trans_fashionmnist_normalization,
 }
 
@@ -33,7 +34,8 @@ TRANSFORM_AUGMENTATION = {
 TORCHVISION_DATASETS = {'mnist'         : datasets.MNIST,
                         'cifar10'       : datasets.CIFAR10,
                         'cifar100'      : datasets.CIFAR100,
-                        'emnist'        : datasets.EMNIST,
+                        'emnist_l'      : datasets.EMNIST,
+                        'emnist_d'      : datasets.EMNIST,
                         'fashionmnist'  : datasets.FashionMNIST,
                         }
 
@@ -41,8 +43,18 @@ KWARGS = {
     'mnist'         : {},
     'cifar10'       : {},
     'cifar100'      : {},
-    'emnist'        : {"split": "mnist"},
+    'emnist_l'      : {"split": "letters"},
+    'emnist_d'      : {"split": "digits"},
     'fashionmnist'  : {},
+}
+
+TRANSFORM_TARGET = {
+    'mnist'         : None,
+    'cifar10'       : None,
+    'cifar100'      : None,
+    'emnist_d'      : None,
+    'fashionmnist'  : None,
+    "emnist_l"      : lambda c: c - 1
 }
 
 class DatasetSplit(Dataset):
@@ -348,14 +360,14 @@ def get_data(args, tokenizer=None):
     # The "dataset.transform" will be set when creating the dataloader from the dataset
     with FileLock(os.path.expanduser("~/.data.lock")):
         if args.dataset in TORCHVISION_DATASETS:
-            dataset_train = TORCHVISION_DATASETS[args.dataset](f'~/data/{args.dataset}', train=True, download=True, **KWARGS[args.dataset])
-            dataset_test = TORCHVISION_DATASETS[args.dataset](f'~/data/{args.dataset}', train=False, download=True, **KWARGS[args.dataset])
+            dataset_train = TORCHVISION_DATASETS[args.dataset](f'~/data/{args.dataset}', train=True, download=True, **KWARGS[args.dataset], target_transform=TRANSFORM_TARGET[args.dataset])
+            dataset_test = TORCHVISION_DATASETS[args.dataset](f'~/data/{args.dataset}', train=False, download=True, **KWARGS[args.dataset], target_transform=TRANSFORM_TARGET[args.dataset])
 
             dict_users_train, user_to_classes = noniid(dataset_train, args.num_users, args.shard_per_user,
-                                                       args.num_classes, args.sample_size_var)
+                                                       args.num_classes, args.sample_size_var, transform_target=TRANSFORM_TARGET[args.dataset])
             dict_users_train, dict_users_validation = split_train_validation(args, dict_users_train)
             dict_users_test = noniid(dataset_test, args.num_users, args.shard_per_user, args.num_classes,
-                                     args.sample_size_var, user_to_classes=user_to_classes)
+                                     args.sample_size_var, user_to_classes=user_to_classes, transform_target=TRANSFORM_TARGET[args.dataset])
 
         elif args.dataset == 'harass':
             df = pd.read_csv('data/Sexual_Harassment_Data/Harassment_Cleaned_tweets.csv')
@@ -406,7 +418,7 @@ def split_train_validation(args, dict_users_train):
     return dict_users_train, dict_users_validation
 
 
-def noniid(dataset, num_users, shard_per_user, num_classes, sample_size_var, user_to_classes = None):
+def noniid(dataset, num_users, shard_per_user, num_classes, sample_size_var, user_to_classes = None, transform_target = None):
     if sample_size_var > 0:
         return noniid_diff_size(dataset, num_users, shard_per_user, num_classes, user_to_classes)
 
@@ -419,7 +431,8 @@ def noniid(dataset, num_users, shard_per_user, num_classes, sample_size_var, use
 
     # transform the dataset into a dictionary based on labels
     for i in range(len(dataset)):
-        label = torch.tensor(dataset.targets[i]).item()
+        target_i = dataset.targets[i] if transform_target is None else transform_target(dataset.targets[i])
+        label = torch.tensor(target_i).item()
         if label < num_classes:
             class_to_sample_ids[label].append(i)
 

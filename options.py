@@ -97,7 +97,8 @@ def args_parser():
     # Dataset configuration
     parser.add_argument('--dataset', type=str, default='mnist', help="name of dataset", choices=['cifar10',
                                                                                                  'cifar100',
-                                                                                                 'emnist',
+                                                                                                 'emnist_l',
+                                                                                                 'emnist_d',
                                                                                                  'fashionmnist'])
     parser.add_argument('--num_classes', type=int, default=10, help="number of classes")
     parser.add_argument('--num_channels', type=int, default=3, help="number of channels of imges")

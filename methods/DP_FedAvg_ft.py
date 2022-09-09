@@ -75,8 +75,6 @@ class ClientDPFedAvgFT(Client):
                               weight_decay=self.args.weight_decay
                               )
 
-        # Todo: Create a new dataset to save time!
-
         ft_dataloader = prepare_ft_dataloader(self.args, self.device, self.model, self.train_dataloader.dataset.d_split)
         losses = []
         top1_acc = []

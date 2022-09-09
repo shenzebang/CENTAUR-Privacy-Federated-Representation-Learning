@@ -20,7 +20,13 @@ class MLP(nn.Module):
                             ['layer_out.weight', 'layer_out.bias']
                             ]
 
-    def forward(self, x):
+    def forward(self, x, representation=False, head=False):
+        if representation and head:
+            raise ValueError("At most one of representation and head can be True!")
+
+        if head:
+            return self.layer_out(x)
+
         x = x.view(-1, x.shape[1]*x.shape[-2]*x.shape[-1])
         x = self.layer_input(x)
         x = self.relu(x)
@@ -28,8 +34,12 @@ class MLP(nn.Module):
         x = self.relu(x)
         x = self.layer_hidden2(x)
         x = self.relu(x)
-        x = self.layer_out(x)
-        return x
+
+        if representation: # the last layer (head) is omitted
+            return x
+        else:
+            return self.layer_out(x)
+
 
 class CNNCifar10(nn.Module):
     def __init__(self, args):
@@ -50,14 +60,24 @@ class CNNCifar10(nn.Module):
                             ['conv1.weight', 'conv1.bias'],
                             ]
 
-    def forward(self, x):
+    def forward(self, x, representation=False, head=False):
+        if representation and head:
+            raise ValueError("At most one of representation and head can be True!")
+
+        if head:
+            return self.fc3(x)
+
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = x.view(-1, 64 * 5 * 5)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+
+        if representation: # the last layer (head) is omitted
+            return x
+        else:
+            return self.fc3(x)
+
 
 class CNNCifar10_BN(nn.Module):  # with batch normalization
     def __init__(self, args):
@@ -197,7 +217,7 @@ def get_model(args):
         net_glob = torchvision.models.resnet18(num_classes=args.num_classes)
         if not args.disable_dp:
             net_glob = ModuleValidator.fix(net_glob)
-    elif args.model == 'mlp' and 'mnist' in args.dataset:  # both mnist and femnist
+    elif args.model == 'mlp' and 'mnist' in args.dataset:  # emnist
         net_glob = MLP(args)
     elif args.model == 'cnn' and 'femnist' in args.dataset:
         raise NotImplementedError
