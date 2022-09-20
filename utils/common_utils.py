@@ -238,7 +238,6 @@ def server_update_with_clip(sd: OrderedDict, sd_clients: List[OrderedDict], keys
         # 3. update the global model
         for key in keys:
             white_noise = noise_level * torch.randn(sd[key].size(), device=sd[key].device) if noise_level > 0 else 0
-            # white_noise = 0
             diff_clients_key = [diff_client[key] for diff_client in diff_clients]
             sd[key] = sd[key] + global_lr * (torch.mean(torch.stack(diff_clients_key, dim=0), dim=0) + white_noise / len(sd_clients))
 
