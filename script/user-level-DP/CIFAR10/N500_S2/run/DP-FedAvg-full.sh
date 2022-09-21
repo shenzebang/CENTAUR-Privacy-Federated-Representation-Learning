@@ -16,7 +16,7 @@ args=(--alg DP_FedAvg_ft
     --dp_type user-level-DP
     --epsilon 1
     --delta 1e-5
-    --dp_clip 1
+    --dp_clip .01
     #  save/load configuration
     #  backend configuration
     --use_ray
@@ -31,7 +31,7 @@ args=(--alg DP_FedAvg_ft
     # algorithm specific configuration
     --lr 1e-1
     --lr-head 1e-2
-    --ft-ep 15
+    --local_head_ep 15
     )
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 python main.py "${args[@]}"

@@ -1,6 +1,9 @@
 import warnings
 
 from opacus.accountants import RDPAccountant
+from torch import optim
+from opacus.utils.batch_memory_manager import wrap_data_loader
+from utils.data_utils import prepare_ft_dataloader
 
 from utils.common_utils import *
 from utils.ray_remote_worker import *
@@ -43,6 +46,7 @@ class Client:
                  idx: int,
                  args,
                  representation_keys: List[str],
+                 fine_tune_keys: List[str],
                  train_dataloader: DataLoader,
                  validation_dataloader: DataLoader,
                  test_dataloader: DataLoader,
@@ -53,6 +57,7 @@ class Client:
         self.args = args
         self.model = copy.deepcopy(model)
         self.representation_keys = representation_keys
+        self.fine_tune_keys = fine_tune_keys
         self.train_dataloader = train_dataloader
         self.validation_dataloader = validation_dataloader
         self.test_dataloader = test_dataloader
@@ -81,6 +86,84 @@ class Client:
                         f"[ local-level DP. The noise multiplier is manually set to {self.noise_multiplier} ]"
                     )
             # self.noise_multiplier = 0
+
+    def _train_over_keys(self, model: nn.Module, keys: List[str]):
+        activate_in_keys(model, keys)
+
+        model.train()
+        optimizer = optim.SGD(self.model.parameters(),
+                              lr=self.args.lr,
+                              momentum=self.args.momentum,
+                              weight_decay=self.args.weight_decay
+                              )
+        model, optimizer, train_loader = make_private(self.args, self.PE, model, optimizer, self.train_dataloader,
+                                                      self.noise_multiplier)
+
+        losses = []
+        top1_acc = []
+
+        if self.PE is not None and self.train_dataloader.batch_size > self.args.MAX_PHYSICAL_BATCH_SIZE:
+            train_loader = wrap_data_loader(
+                data_loader=train_loader,
+                max_batch_size=self.args.MAX_PHYSICAL_BATCH_SIZE,
+                optimizer=optimizer
+            )
+
+        for rep_epoch in range(self.args.local_ep):
+            for _batch_idx, (data, target) in enumerate(train_loader):
+                data, target = flat_multiplicty_data(data.to(self.device), target.to(self.device))
+                output = model(data)
+                loss = self.criterion(output, target)
+                loss.backward()
+                aggregate_grad_sample(model, self.args.data_augmentation_multiplicity)
+                optimizer.step()
+                optimizer.zero_grad()
+                model.zero_grad()
+                losses.append(loss.item())
+
+                preds = np.argmax(output.detach().cpu().numpy(), axis=1)
+                labels = target.detach().cpu().numpy()
+                acc = accuracy(preds, labels)
+                top1_acc.append(acc)
+        # del optimizer
+
+        # Using PE to privitize the model will change the keys of model.state_dict()
+        # This subroutine restores the keys to the non-DP model
+        # self.model.load_state_dict(fix_DP_model_keys(self.args, model))
+
+        return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
+
+    def _fine_tune_over_head(self, model: nn.Module, keys: List[str]):
+        activate_in_keys(model, keys)
+        model.train()
+
+        optimizer = optim.SGD(model.parameters(),
+                              lr=self.args.lr_head,
+                              momentum=self.args.momentum,
+                              weight_decay=self.args.weight_decay
+                              )
+
+        losses = []
+        top1_acc = []
+        ft_dataloader = prepare_ft_dataloader(self.args, self.device, self.model, self.train_dataloader.dataset.d_split)
+        for head_epoch in range(self.args.local_head_ep):
+            for _batch_idx, (data, target) in enumerate(ft_dataloader):
+                data, target = data.to(self.device), target.to(self.device)
+                output = model(data, head=True)
+                loss = self.criterion(output, target)
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+                losses.append(loss.item())
+
+                preds = np.argmax(output.detach().cpu().numpy(), axis=1)
+                labels = target.detach().cpu().numpy()
+                acc = accuracy(preds, labels)
+                top1_acc.append(acc)
+
+        del ft_dataloader
+
+        return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
     def _eval(self, model: nn.Module, dataloader: DataLoader):
         model.eval()
@@ -130,10 +213,17 @@ class Client:
         raise NotImplementedError
 
 class Server:
-    def __init__(self, args, model: nn.Module, representation_keys: List[str], clients: List[Client], remote_workers: List[Worker]):
+    def __init__(self,
+                 args,
+                 model: nn.Module,
+                 representation_keys: List[str],
+                 fine_tune_keys: List[str],
+                 clients: List[Client],
+                 remote_workers: List[Worker]):
         self.args = args
         self.model = model
         self.representation_keys = representation_keys
+        self.fine_tune_keys = fine_tune_keys
         self.clients = clients
         self.remote_workers = remote_workers
         if not args.disable_dp and args.dp_type == "user-level-DP":

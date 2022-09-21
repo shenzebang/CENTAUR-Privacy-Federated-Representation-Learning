@@ -63,33 +63,52 @@ def deactivate_in_keys(model: nn.Module, representation_keys: List[str]):
         else:
             param.requires_grad = False
 
-def get_representation_keys(args, global_model):
+def get_keys(args, global_model):
     representation_keys = []
+    fine_tune_keys = []
     if 'cifar' in args.dataset:
         if args.model == 'cnn':
             representation_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
         if args.model == 'mlp':
             representation_keys = [global_model.weight_keys[i] for i in [0, 1, 2]]
+
+        representation_keys = list(itertools.chain.from_iterable(representation_keys))
+        all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+        fine_tune_keys = [key for key in all_keys if key not in representation_keys]
     elif 'mnist' in args.dataset:
         if args.model == 'cnn':
             representation_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
         if args.model == 'mlp':
             representation_keys = [global_model.weight_keys[i] for i in [0, 1, 2]]
+
+        representation_keys = list(itertools.chain.from_iterable(representation_keys))
+        all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+        fine_tune_keys = [key for key in all_keys if key not in representation_keys]
+
     elif 'sent140' in args.dataset:
         if args.model == 'lstm':
             representation_keys = global_model[:-4]
         if args.model == 'mlp':
             representation_keys = [global_model[i] for i in [0, 1, 2, 3]]
+        raise NotImplementedError
     elif 'harass' in args.dataset:
         representation_keys = global_model[:-2]
+        raise NotImplementedError
     else:
         representation_keys = global_model[:-2]
+        raise NotImplementedError
 
+    print(
+        f"[ The representation keys are : ]",
+        f"{representation_keys}"
+    )
 
-    if 'sent140' not in args.dataset and 'harass' not in args.dataset:
-        representation_keys = list(itertools.chain.from_iterable(representation_keys))
+    print(
+        f"[ The fine-tine keys are : ]",
+        f"{fine_tune_keys}"
+    )
 
-    return representation_keys
+    return representation_keys, fine_tune_keys
 
 
 def fix_DP_model_keys(args, model: nn.Module):

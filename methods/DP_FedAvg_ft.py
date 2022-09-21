@@ -100,7 +100,8 @@ class ClientDPFedAvgFT(Client):
     def step(self, epoch: int):
         # 1. Fine tune the head of a copy
         model_head = copy.deepcopy(self.model)
-        _, _ = self._fine_tune_head(model_head)
+        # _, _ = self._fine_tune_head(model_head)
+        _, _ = self._fine_tune_over_head(model_head, self.fine_tune_keys)
 
         # 2. Calculate the performance of the representation from the previous iteration
         #    Only the fine tuned model is tested
@@ -109,7 +110,9 @@ class ClientDPFedAvgFT(Client):
         del model_head
 
         # 3. Update the representation
-        train_loss, train_acc = self._train() if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
+        # train_loss, train_acc = self._train() if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
+        train_loss, train_acc = self._train_over_keys(self.model, self.fine_tune_keys+self.representation_keys) \
+                                if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
 
         # return the accuracy and the updated representation
         return self.report(train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc)
