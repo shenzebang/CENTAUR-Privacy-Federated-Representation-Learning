@@ -194,7 +194,7 @@ class Client:
 
         return validation_loss, validation_top1_acc, test_loss, test_top1_acc
 
-    def report(self, model_old, model_new, train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc):
+    def report(self, model_old, model_new, train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc, loss_acc_only=False):
         if self.args.verbose:
             print(
                 f"Client {self.idx} finished."
@@ -202,8 +202,10 @@ class Client:
 
         sd_old = model_old.state_dict()
         sd_new = model_new.state_dict()
-        sd_local = {key: sd_new[key] for key in sd_new.keys() if key in self.local_keys} # updated head
-        sd_global_diff = {key: sd_new[key] - sd_old[key] for key in sd_new.keys() if key in self.global_keys} # model difference
+        # updated head
+        sd_local = {key: sd_new[key] for key in sd_new.keys() if key in self.local_keys} if not loss_acc_only else None
+        # model difference
+        sd_global_diff = {key: sd_new[key] - sd_old[key] for key in sd_new.keys() if key in self.global_keys} if not loss_acc_only else None
 
 
         result_dict = {
