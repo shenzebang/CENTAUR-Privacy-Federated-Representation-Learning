@@ -12,6 +12,7 @@ from methods.api import Server, Client, Results
 warnings.filterwarnings("ignore")
 
 class ClientDPFedAvgFT(Client):
+
     def _train(self):
         '''
             The privacy engine is maintained by the server to ensure the compatibility with ray backend
@@ -96,6 +97,8 @@ class ClientDPFedAvgFT(Client):
         del ft_dataloader
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
+    def _get_local_and_global_keys(self):
+        return [], self.fine_tune_keys + self.representation_keys
 
     def step(self, epoch: int):
         # 1. Fine tune the head of a copy
@@ -111,29 +114,24 @@ class ClientDPFedAvgFT(Client):
 
         # 3. Update the representation
         # train_loss, train_acc = self._train() if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
-        train_loss, train_acc = self._train_over_keys(self.model, self.fine_tune_keys+self.representation_keys) \
+        model_old = self.model
+        model_new = copy.deepcopy(model_old)
+        train_loss, train_acc = self._train_over_keys(model_new, self.fine_tune_keys+self.representation_keys) \
                                 if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
 
-        # return the accuracy and the updated representation
-        return self.report(train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc)
+        # return the accuracy and the model difference
+        return self.report(model_old, model_new, train_loss, train_acc, validation_loss, validation_acc, test_loss,
+                           test_acc)
 
 class ServerDPFedAvgFT(Server):
+    def _get_local_and_global_keys(self):
+        return [], self.fine_tune_keys + self.representation_keys
+
 
     def broadcast(self, clients: List[ClientDPFedAvgFT]):
         for client in clients:
             client.model = copy.deepcopy(self.model)
 
-    def aggregate(self, sds_client: List[OrderedDict]):
-        '''
-            Only the simplest average aggregation is implemented
-        '''
-        sd = self.model.state_dict()
-
-        noise_level = self.args.dp_clip * self.noise_multiplier
-
-        sd = server_update_with_clip(sd, sds_client, [], self.clip_threshold, self.args.global_lr, noise_level)
-
-        self.model.load_state_dict(sd)
 
     def step(self, epoch: int):
         '''
@@ -153,7 +151,7 @@ class ServerDPFedAvgFT(Server):
             for client, PE in zip(clients, results_dict_sub_step["PEs"]):
                 if client.idx == 0: client.PE = PE
             # 3. Server aggregate the local updates
-            self.aggregate(results_dict_sub_step["sds"])
+            self.aggregate(results_dict_sub_step["sds_global_diff"])
             results_mega_step.add(results_dict_sub_step)
 
             if self.accountant is not None:

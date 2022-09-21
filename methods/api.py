@@ -86,12 +86,16 @@ class Client:
                         f"[ local-level DP. The noise multiplier is manually set to {self.noise_multiplier} ]"
                     )
             # self.noise_multiplier = 0
+        self.local_keys, self.global_keys = self._get_local_and_global_keys()
+
+    def _get_local_and_global_keys(self):
+        raise NotImplementedError
 
     def _train_over_keys(self, model: nn.Module, keys: List[str]):
         activate_in_keys(model, keys)
 
         model.train()
-        optimizer = optim.SGD(self.model.parameters(),
+        optimizer = optim.SGD(model.parameters(),
                               lr=self.args.lr,
                               momentum=self.args.momentum,
                               weight_decay=self.args.weight_decay
@@ -145,7 +149,7 @@ class Client:
 
         losses = []
         top1_acc = []
-        ft_dataloader = prepare_ft_dataloader(self.args, self.device, self.model, self.train_dataloader.dataset.d_split)
+        ft_dataloader = prepare_ft_dataloader(self.args, self.device, model, self.train_dataloader.dataset.d_split)
         for head_epoch in range(self.args.local_head_ep):
             for _batch_idx, (data, target) in enumerate(ft_dataloader):
                 data, target = data.to(self.device), target.to(self.device)
@@ -190,11 +194,17 @@ class Client:
 
         return validation_loss, validation_top1_acc, test_loss, test_top1_acc
 
-    def report(self, train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc):
+    def report(self, model_old, model_new, train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc):
         if self.args.verbose:
             print(
                 f"Client {self.idx} finished."
             )
+
+        sd_old = model_old.state_dict()
+        sd_new = model_new.state_dict()
+        sd_local = {key: sd_new[key] for key in sd_new.keys() if key in self.local_keys} # updated head
+        sd_global_diff = {key: sd_new[key] - sd_old[key] for key in sd_new.keys() if key in self.global_keys} # model difference
+
 
         result_dict = {
             "train loss": train_loss,
@@ -203,7 +213,8 @@ class Client:
             "validation acc": validation_acc,
             "test loss": test_loss,
             "test acc": test_acc,
-            "sd": self.model.state_dict(),
+            "sd_local": sd_local,
+            "sd_global_diff": sd_global_diff,
             "PE": self.PE if self.idx == 0 else None
         }
         return result_dict
@@ -249,11 +260,27 @@ class Server:
             self.accountant = None
             self.clip_threshold = -1
 
+        self.local_keys, self.global_keys = self._get_local_and_global_keys()
+
+    def _get_local_and_global_keys(self):
+        raise NotImplementedError
+
+
     def broadcast(self, clients: List[Client]):
         raise NotImplementedError
 
-    def aggregate(self, sds_client: List[OrderedDict]):
-        raise NotImplementedError
+    def aggregate(self, sds_global_diff: List[OrderedDict]):
+        '''
+            Only the simplest average aggregation is implemented
+        '''
+        sd = self.model.state_dict()
+
+        noise_level = self.args.dp_clip * self.noise_multiplier
+
+        sd = server_update_with_clip(sd, sds_global_diff, self.global_keys, self.clip_threshold,
+                                     self.args.global_lr, noise_level, self.args.aggr)
+
+        self.model.load_state_dict(sd)
 
     def local_update(self, clients: List[Client], epoch: int):
         '''
@@ -269,7 +296,8 @@ class Server:
             "validation acc": torch.mean(torch.stack([result["validation acc"] for result in results])),
             "test loss": torch.mean(torch.stack([result["test loss"] for result in results])),
             "test acc": torch.mean(torch.stack([result["test acc"] for result in results])),
-            "sds": [result["sd"] for result in results],
+            "sds_local": [result["sd_local"] for result in results],
+            "sds_global_diff": [result["sd_global_diff"] for result in results],
             "PEs": [result["PE"] for result in results]
         }
         return result_dict

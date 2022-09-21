@@ -222,7 +222,7 @@ AGGR_OPS = {
 }
 
 
-def server_update_with_clip(sd: OrderedDict, sd_clients: List[OrderedDict], keys: List[str],
+def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict], keys: List[str],
                             clip_threshold=-1, global_lr=1, noise_level=0, aggr='mean'):
     '''
         Only the key in "keys" will be updated. If "keys" is empty, all keys will be updated.
@@ -232,32 +232,31 @@ def server_update_with_clip(sd: OrderedDict, sd_clients: List[OrderedDict], keys
 
     if len(keys) == 0: keys = sd.keys()
 
+    n_clients = len(sds_global_diff)
+
     if clip_threshold <= 0: # The server performs no clip.
         aggr_op = AGGR_OPS[aggr]
         for key in keys:
-            param_clients_key = [sd_client[key] for sd_client in sd_clients]
-            sd[key] = sd[key] * (1 - global_lr) + global_lr * aggr_op(torch.stack(param_clients_key, dim=0), dim=0)
+            sds_global_diff_key = [sd_global_diff[key] for sd_global_diff in sds_global_diff]
+            sd[key] = sd[key] + global_lr * aggr_op(torch.stack(sds_global_diff_key, dim=0), dim=0)
     else: # The server performs clip.
-        diff_clients = [ {} for _ in range(len(sd_clients)) ]
-        norm_diff_clients = [ torch.ones(1) ] * len(sd_clients)
+        norm_diff_clients = [ torch.ones(1) ] * n_clients
         # 1. Calculate the norm of differences
-        for cid, sd_client in enumerate(sd_clients):
-            diff_cid = {key: sd_client[key] - sd[key] for key in keys}
-            norm_diff_cid_square = [torch.norm(diff_cid[key]) ** 2 for key in keys]
+        for cid, sd_global_diff in enumerate(sds_global_diff):
+            norm_diff_cid_square = [torch.norm(sd_global_diff[key]) ** 2 for key in keys]
             norm_diff_clients[cid] = torch.sqrt(torch.sum(torch.stack(norm_diff_cid_square)))
-            diff_clients[cid] = diff_cid
 
         # 2. Rescale the diffs
         rescale_clients = [1 if norm_diff_client<clip_threshold else clip_threshold/norm_diff_client
                              for norm_diff_client in norm_diff_clients]
-        for rescale_client, diff_client in zip(rescale_clients, diff_clients):
+        for rescale_client, sd_global_diff in zip(rescale_clients, sds_global_diff):
             for key in keys:
-                diff_client[key] = diff_client[key] * rescale_client
+                sd_global_diff[key] = sd_global_diff[key] * rescale_client
 
         # 3. update the global model
         for key in keys:
             white_noise = noise_level * torch.randn(sd[key].size(), device=sd[key].device) if noise_level > 0 else 0
-            diff_clients_key = [diff_client[key] for diff_client in diff_clients]
-            sd[key] = sd[key] + global_lr * (torch.mean(torch.stack(diff_clients_key, dim=0), dim=0) + white_noise / len(sd_clients))
+            sds_global_diff_key = [sd_global_diff[key] for sd_global_diff in sds_global_diff]
+            sd[key] = sd[key] + global_lr * (torch.mean(torch.stack(sds_global_diff_key, dim=0), dim=0) + white_noise / n_clients)
 
     return sd

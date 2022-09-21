@@ -12,6 +12,7 @@ from methods.api import Server, Client, Results
 warnings.filterwarnings("ignore")
 
 class ClientDPFedRep(Client):
+
     def _train_representation(self):
         '''
             The privacy engine is maintained by the server to ensure the compatibility with ray backend
@@ -97,25 +98,35 @@ class ClientDPFedRep(Client):
 
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
+    def _get_local_and_global_keys(self):
+        return self.fine_tune_keys, self.representation_keys
 
     def step(self, epoch: int):
         # 1. Fine tune the head
         # _, _ = self._train_head()
-        _, _ = self._fine_tune_over_head(self.model, self.fine_tune_keys)
+        model_old = self.model
+        model_new = copy.deepcopy(self.model)
+        _, _ = self._fine_tune_over_head(model_new, self.fine_tune_keys)
 
         # 2. Calculate the performance of the representation from the previous iteration
         #    The performance is the
-        validation_loss, validation_acc, test_loss, test_acc = self.test(self.model)
+        validation_loss, validation_acc, test_loss, test_acc = self.test(model_new)
 
         # 3. Update the representation
         # train_loss, train_acc = self._train_representation() if epoch >=0 else (torch.tensor(0.), torch.tensor(0.))
-        train_loss, train_acc = self._train_over_keys(self.model, self.representation_keys) \
+        train_loss, train_acc = self._train_over_keys(model_new, self.representation_keys) \
                                     if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
 
-        # return the accuracy and the updated representation
-        return self.report(train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc)
+        # return the accuracy, the updated head, and the representation difference
+        return self.report(model_old, model_new, train_loss, train_acc, validation_loss, validation_acc, test_loss,
+                           test_acc)
+
 
 class ServerDPFedRep(Server):
+
+    def _get_local_and_global_keys(self):
+        return self.fine_tune_keys, self.representation_keys
+
     def broadcast(self, clients):
         for client in clients:
             sd_client_old = client.model.state_dict()
@@ -126,19 +137,6 @@ class ServerDPFedRep(Server):
                 if key not in self.representation_keys:
                     sd_client_new[key] = copy.deepcopy(sd_client_old[key])
             client.model.load_state_dict(sd_client_new)
-
-    def aggregate(self, sds_client: List[OrderedDict]):
-        '''
-            Only the simplest average aggregation is implemented
-        '''
-        sd = self.model.state_dict()
-
-        noise_level = self.args.dp_clip * self.noise_multiplier
-
-        sd = server_update_with_clip(sd, sds_client, self.representation_keys, self.clip_threshold,
-                                     self.args.global_lr, noise_level, self.args.aggr)
-
-        self.model.load_state_dict(sd)
 
     def step(self, epoch: int):
         '''
@@ -157,11 +155,14 @@ class ServerDPFedRep(Server):
             results_dict_sub_step = self.local_update(clients, epoch)
             # This step is to ensure the compatibility with the ray backend.
             if self.args.use_ray:
-                for client, sd, PE in zip(clients, results_dict_sub_step["sds"], results_dict_sub_step["PEs"]):
+                for client, sd_local, PE in zip(clients, results_dict_sub_step["sds_local"], results_dict_sub_step["PEs"]):
+                    sd = client.model.state_dict()
+                    for key in sd_local.keys():
+                        sd[key] = sd_local[key]
                     client.model.load_state_dict(sd)
                     if client.idx == 0: client.PE = PE
             # 3. Server aggregate the local updates
-            self.aggregate(results_dict_sub_step["sds"])
+            self.aggregate(results_dict_sub_step["sds_global_diff"])
             results_mega_step.add(results_dict_sub_step)
 
             if self.accountant is not None:
