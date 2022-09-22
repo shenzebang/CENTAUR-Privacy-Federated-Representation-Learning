@@ -6,8 +6,7 @@ from utils.common_utils import *
 from utils.data_utils import prepare_dataloaders
 from methods.DP_FedAvg_ft import ServerDPFedAvgFT, ClientDPFedAvgFT
 from methods.DP_FedRep import ServerDPFedRep, ClientDPFedRep
-from methods.PPSGD import Client as PPSGD_Client
-from methods.PPSGD import Server as PPSGD_Server
+from methods.PPSGD import ServerPPSGD, ClientPPSGD
 from methods.DP_local_train import ServerLocalOnly, ClientLocalOnly
 from models.models import get_model
 from options import args_parser
@@ -18,7 +17,7 @@ from ray import tune
 ALGORITHMS = {
     "DP_FedAvg_ft"  : (ServerDPFedAvgFT, ClientDPFedAvgFT),
     "DP_FedRep"     : (ServerDPFedRep, ClientDPFedRep),
-    "PPSGD"         : (PPSGD_Server, PPSGD_Client),
+    "PPSGD"         : (ServerPPSGD, ClientPPSGD),
     "Local"         : (ServerLocalOnly, ClientLocalOnly),
 }
 

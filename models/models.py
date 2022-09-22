@@ -78,6 +78,45 @@ class CNNCifar10(nn.Module):
         else:
             return self.fc3(x)
 
+class CNNCifar10_PPSGD(nn.Module):
+    def __init__(self, args):
+        super(CNNCifar10_PPSGD, self).__init__()
+        self.conv1 = nn.Conv2d(3, 64, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.drop = nn.Dropout(0.6)
+        self.conv2 = nn.Conv2d(64, 64, 5)
+        self.fc1 = nn.Linear(64 * 5 * 5, 384)
+        self.fc2 = nn.Linear(384, 192)
+        self.fc3 = nn.Linear(192, args.num_classes)
+        self.fc4 = nn.Linear(192, args.num_classes)
+        self.cls = args.num_classes
+
+        self.weight_keys = [['fc1.weight', 'fc1.bias'],
+                            ['fc2.weight', 'fc2.bias'],
+                            ['fc3.weight', 'fc3.bias'],
+                            ['fc4.weight', 'fc4.bias'],
+                            ['conv2.weight', 'conv2.bias'],
+                            ['conv1.weight', 'conv1.bias'],
+                            ]
+
+    def forward(self, x, representation=False, head=False):
+        if representation and head:
+            raise ValueError("At most one of representation and head can be True!")
+
+        if head:
+            return self.fc4(x) + self.fc3(x)
+
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(-1, 64 * 5 * 5)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+
+        if representation: # the last layer (head) is omitted
+            return x
+        else:
+            return self.fc3(x) + self.fc4(x)
+
 
 class CNNCifar10_BN(nn.Module):  # with batch normalization
     def __init__(self, args):
@@ -201,6 +240,17 @@ class CNNCifar100_BN(nn.Module):  # with batch normalization
         return x
 
 def get_model(args):
+    if args.alg == 'PPSGD':
+        if args.model == 'cnn' and 'cifar100' == args.dataset:
+            net_glob = CNNCIFAR100_PPSGD(args=args)
+        elif args.model == 'cnn' and 'cifar10' == args.dataset:
+            net_glob = CNNCifar10_PPSGD(args=args)
+        elif args.model == 'mlp' and 'emnist' in args.dataset:
+            net_glob = MLP_PPSGD(args=args)
+        else:
+            raise NotImplementedError
+        return net_glob
+
     if args.model == 'cnn' and 'cifar100' in args.dataset:
         if args.norm == 'None':
             net_glob = CNNCifar100(args=args)

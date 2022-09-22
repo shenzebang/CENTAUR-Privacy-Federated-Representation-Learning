@@ -64,6 +64,22 @@ def deactivate_in_keys(model: nn.Module, representation_keys: List[str]):
             param.requires_grad = False
 
 def get_keys(args, global_model):
+    if args.alg == 'PPSGD':
+        if 'cifar' in args.dataset:
+            if args.model == 'cnn':
+                representation_keys = [global_model.weight_keys[i] for i in [0, 1, 2, 4, 5]]
+                representation_keys = list(itertools.chain.from_iterable(representation_keys))
+                all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+                fine_tune_keys = [key for key in all_keys if key not in representation_keys]
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+        return representation_keys, fine_tune_keys
+
+
+
     representation_keys = []
     fine_tune_keys = []
     if 'cifar' in args.dataset:
