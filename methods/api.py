@@ -200,6 +200,9 @@ class Client:
                 f"Client {self.idx} finished."
             )
 
+        if self.args.use_ray:
+            model_old.to("cpu")
+            model_new.to("cpu")
         sd_old = model_old.state_dict()
         sd_new = model_new.state_dict()
         # updated head
@@ -232,13 +235,15 @@ class Server:
                  representation_keys: List[str],
                  fine_tune_keys: List[str],
                  clients: List[Client],
-                 remote_workers: List[Worker]):
+                 remote_workers: List[Worker],
+                 device):
         self.args = args
         self.model = model
         self.representation_keys = representation_keys
         self.fine_tune_keys = fine_tune_keys
         self.clients = clients
         self.remote_workers = remote_workers
+        self.device = device
         if not args.disable_dp and args.dp_type == "user-level-DP":
             self.accountant = RDPAccountant()
             if self.args.noise_multiplier < 0:
@@ -267,9 +272,15 @@ class Server:
     def _get_local_and_global_keys(self):
         raise NotImplementedError
 
-
     def broadcast(self, clients: List[Client]):
-        raise NotImplementedError
+        sd_server = self.model.state_dict()
+        for client in clients:
+            sd_client = client.model.state_dict()
+            # for key in self.local_keys:
+            #     sd_client[key] = sd_client[key].to(self.device)
+            for key in self.global_keys:
+                sd_client[key] = sd_server[key] if len(self.remote_workers) != 0 else copy.deepcopy(sd_server[key])
+            client.model.load_state_dict(sd_client)
 
     def aggregate(self, sds_global_diff: List[OrderedDict]):
         '''

@@ -234,29 +234,30 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
 
     n_clients = len(sds_global_diff)
 
-    if clip_threshold <= 0: # The server performs no clip.
-        aggr_op = AGGR_OPS[aggr]
-        for key in keys:
-            sds_global_diff_key = [sd_global_diff[key] for sd_global_diff in sds_global_diff]
-            sd[key] = sd[key] + global_lr * aggr_op(torch.stack(sds_global_diff_key, dim=0), dim=0)
-    else: # The server performs clip.
-        norm_diff_clients = [ torch.ones(1) ] * n_clients
-        # 1. Calculate the norm of differences
-        for cid, sd_global_diff in enumerate(sds_global_diff):
-            norm_diff_cid_square = [torch.norm(sd_global_diff[key]) ** 2 for key in keys]
-            norm_diff_clients[cid] = torch.sqrt(torch.sum(torch.stack(norm_diff_cid_square)))
-
-        # 2. Rescale the diffs
-        rescale_clients = [1 if norm_diff_client<clip_threshold else clip_threshold/norm_diff_client
-                             for norm_diff_client in norm_diff_clients]
-        for rescale_client, sd_global_diff in zip(rescale_clients, sds_global_diff):
+    with torch.autograd.no_grad():
+        if clip_threshold <= 0: # The server performs no clip.
+            aggr_op = AGGR_OPS[aggr]
             for key in keys:
-                sd_global_diff[key] = sd_global_diff[key] * rescale_client
+                sds_global_diff_key = [sd_global_diff[key] for sd_global_diff in sds_global_diff]
+                sd[key] = sd[key] + global_lr * aggr_op(torch.stack(sds_global_diff_key, dim=0), dim=0)
+        else: # The server performs clip.
+            norm_diff_clients = [ torch.ones(1) ] * n_clients
+            # 1. Calculate the norm of differences
+            for cid, sd_global_diff in enumerate(sds_global_diff):
+                norm_diff_cid_square = [torch.norm(sd_global_diff[key]) ** 2 for key in keys]
+                norm_diff_clients[cid] = torch.sqrt(torch.sum(torch.stack(norm_diff_cid_square)))
 
-        # 3. update the global model
-        for key in keys:
-            white_noise = noise_level * torch.randn(sd[key].size(), device=sd[key].device) if noise_level > 0 else 0
-            sds_global_diff_key = [sd_global_diff[key] for sd_global_diff in sds_global_diff]
-            sd[key] = sd[key] + global_lr * (torch.mean(torch.stack(sds_global_diff_key, dim=0), dim=0) + white_noise / n_clients)
+            # 2. Rescale the diffs
+            rescale_clients = [1 if norm_diff_client<clip_threshold else clip_threshold/norm_diff_client
+                                 for norm_diff_client in norm_diff_clients]
+            for rescale_client, sd_global_diff in zip(rescale_clients, sds_global_diff):
+                for key in keys:
+                    sd_global_diff[key] = sd_global_diff[key] * rescale_client
+
+            # 3. update the global model
+            for key in keys:
+                white_noise = noise_level * torch.randn(sd[key].size(), device=sd[key].device) if noise_level > 0 else 0
+                sds_global_diff_key = [sd_global_diff[key] for sd_global_diff in sds_global_diff]
+                sd[key] = sd[key] + global_lr * (torch.mean(torch.stack(sds_global_diff_key, dim=0), dim=0) + white_noise / n_clients)
 
     return sd

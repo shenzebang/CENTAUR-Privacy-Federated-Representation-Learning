@@ -20,16 +20,17 @@ args=(--alg DP_FedRep
     #  save/load configuration
     #  backend configuration
 #     --gpu 0-1-2-3
-#     --use_ray
-#     --ray_gpu_fraction .3
+    --use_ray
+    --ray_gpu_fraction .5
     #  test configuration
+    --print_freq 2
     #  train configuration
     --frac_participate 1
     --batch_size 100
     --local_ep 1
     # --verbose
     # algorithm specific configuration
-    --lr 1e-1
+    --lr 1e-2
     --lr-head 1e-2
     --local_head_ep 15
     )

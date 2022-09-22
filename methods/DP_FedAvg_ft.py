@@ -127,12 +127,6 @@ class ServerDPFedAvgFT(Server):
     def _get_local_and_global_keys(self):
         return [], self.fine_tune_keys + self.representation_keys
 
-
-    def broadcast(self, clients: List[ClientDPFedAvgFT]):
-        for client in clients:
-            client.model = copy.deepcopy(self.model)
-
-
     def step(self, epoch: int):
         '''
             A single server step consists of 1/args.frac_participate sub-steps

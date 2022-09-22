@@ -127,17 +127,6 @@ class ServerDPFedRep(Server):
     def _get_local_and_global_keys(self):
         return self.fine_tune_keys, self.representation_keys
 
-    def broadcast(self, clients):
-        for client in clients:
-            sd_client_old = client.model.state_dict()
-            client.model = copy.deepcopy(self.model)
-            sd_client_new = client.model.state_dict()
-            for key in sd_client_new.keys():
-                # The local head should not be broadcast
-                if key not in self.representation_keys:
-                    sd_client_new[key] = copy.deepcopy(sd_client_old[key])
-            client.model.load_state_dict(sd_client_new)
-
     def step(self, epoch: int):
         '''
             A single server step consists of 1/args.frac_participate sub-steps

@@ -66,11 +66,12 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
 
 
     # Init model
-    global_model = get_model(args).to(device)
+    # If use ray, leave the models on 'cpu' to save cuda memory
+    global_model = get_model(args) if args.use_ray else get_model(args).to(device)
     if "cifar" in args.dataset:
-        summary(global_model, input_size=(3, 32, 32))
+        summary(global_model, input_size=(3, 32, 32), device='cpu')
     elif "mnist" in args.dataset:
-        summary(global_model, input_size=(1, 28, 28))
+        summary(global_model, input_size=(1, 28, 28), device='cpu')
 
     restore_from_checkpoint(args, global_model, checkpoint_dir)
 
@@ -84,9 +85,9 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
                enumerate(zip(train_dataloaders, validation_dataloaders, test_dataloaders))]
 
     # Init Server
-    remote_workers = create_remote_workers(args) # create remote workers with ray backend
+    remote_workers = create_remote_workers(args, device) # create remote workers with ray backend
 
-    server = Server(args, global_model, representation_keys, fine_tune_keys, clients, remote_workers)
+    server = Server(args, global_model, representation_keys, fine_tune_keys, clients, remote_workers, device)
 
 
     train_losses = []
