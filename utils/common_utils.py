@@ -67,64 +67,114 @@ def get_keys(args, global_model):
     if args.alg == 'PPSGD':
         if 'cifar' in args.dataset:
             if args.model == 'cnn':
-                representation_keys = [global_model.weight_keys[i] for i in [0, 1, 2, 4, 5]]
-                representation_keys = list(itertools.chain.from_iterable(representation_keys))
+                global_keys = [global_model.weight_keys[i] for i in [0, 1, 2, 4, 5]]
+                global_keys = list(itertools.chain.from_iterable(global_keys))
                 all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
-                fine_tune_keys = [key for key in all_keys if key not in representation_keys]
+                local_keys = [key for key in all_keys if key not in global_keys]
             else:
                 raise NotImplementedError
         else:
             raise NotImplementedError
 
-        return representation_keys, fine_tune_keys
+        # there is no fine_tune_key for PPSGD
+        return global_keys, local_keys, []
+
+    if args.alg == 'DP_FedRep':
+        if 'cifar' in args.dataset:
+            if args.model == 'cnn':
+                global_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
+                global_keys = list(itertools.chain.from_iterable(global_keys))
+                all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+                local_keys = [key for key in all_keys if key not in global_keys]
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+        # there is no fine_tune_key for DP_FedRep
+        return global_keys, local_keys, []
+
+
+    if args.alg == 'DP_FedAvg_ft':
+        if 'cifar' in args.dataset:
+            if args.model == 'cnn':
+                representation_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
+                representation_keys = list(itertools.chain.from_iterable(representation_keys))
+                all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+                head_keys = [key for key in all_keys if key not in representation_keys]
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+        # there is no local_keys for DP_FedAvg_ft
+        return all_keys, [], head_keys
+
+    if args.alg == 'PMTL':
+        if 'cifar' in args.dataset:
+            if args.model == 'cnn':
+                representation_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
+                representation_keys = list(itertools.chain.from_iterable(representation_keys))
+                all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+                head_keys = [key for key in all_keys if key not in representation_keys]
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+        # there is no local_keys for PMTL
+        return all_keys, [], head_keys
+
+    if args.alg == 'Local':
+        if 'cifar' in args.dataset:
+            if args.model == 'cnn':
+                all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+        # there is no global_keys or fine_tune_keys for local training
+        return [], all_keys, []
+
+
+    # global_keys = []
+    # local_keys = []
+    # if 'cifar' in args.dataset:
+    #     if args.model == 'cnn':
+    #         global_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
+    #     if args.model == 'mlp':
+    #         global_keys = [global_model.weight_keys[i] for i in [0, 1, 2]]
+    #
+    #     global_keys = list(itertools.chain.from_iterable(global_keys))
+    #     all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+    #     local_keys = [key for key in all_keys if key not in global_keys]
+    # elif 'mnist' in args.dataset:
+    #     if args.model == 'cnn':
+    #         global_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
+    #     if args.model == 'mlp':
+    #         global_keys = [global_model.weight_keys[i] for i in [0, 1, 2]]
+    #
+    #     global_keys = list(itertools.chain.from_iterable(global_keys))
+    #     all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+    #     local_keys = [key for key in all_keys if key not in global_keys]
+    #
+    # elif 'sent140' in args.dataset:
+    #     if args.model == 'lstm':
+    #         global_keys = global_model[:-4]
+    #     if args.model == 'mlp':
+    #         global_keys = [global_model[i] for i in [0, 1, 2, 3]]
+    #     raise NotImplementedError
+    # elif 'harass' in args.dataset:
+    #     global_keys = global_model[:-2]
+    #     raise NotImplementedError
+    # else:
+    #     global_keys = global_model[:-2]
+    #     raise NotImplementedError
 
 
 
-    representation_keys = []
-    fine_tune_keys = []
-    if 'cifar' in args.dataset:
-        if args.model == 'cnn':
-            representation_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
-        if args.model == 'mlp':
-            representation_keys = [global_model.weight_keys[i] for i in [0, 1, 2]]
-
-        representation_keys = list(itertools.chain.from_iterable(representation_keys))
-        all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
-        fine_tune_keys = [key for key in all_keys if key not in representation_keys]
-    elif 'mnist' in args.dataset:
-        if args.model == 'cnn':
-            representation_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
-        if args.model == 'mlp':
-            representation_keys = [global_model.weight_keys[i] for i in [0, 1, 2]]
-
-        representation_keys = list(itertools.chain.from_iterable(representation_keys))
-        all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
-        fine_tune_keys = [key for key in all_keys if key not in representation_keys]
-
-    elif 'sent140' in args.dataset:
-        if args.model == 'lstm':
-            representation_keys = global_model[:-4]
-        if args.model == 'mlp':
-            representation_keys = [global_model[i] for i in [0, 1, 2, 3]]
-        raise NotImplementedError
-    elif 'harass' in args.dataset:
-        representation_keys = global_model[:-2]
-        raise NotImplementedError
-    else:
-        representation_keys = global_model[:-2]
-        raise NotImplementedError
-
-    print(
-        f"[ The representation keys are : ]",
-        f"{representation_keys}"
-    )
-
-    print(
-        f"[ The fine-tine keys are : ]",
-        f"{fine_tune_keys}"
-    )
-
-    return representation_keys, fine_tune_keys
+    # return global_keys, local_keys
 
 
 def fix_DP_model_keys(args, model: nn.Module):

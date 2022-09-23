@@ -45,7 +45,8 @@ class Client:
     def __init__(self,
                  idx: int,
                  args,
-                 representation_keys: List[str],
+                 global_keys: List[str],
+                 local_keys: List[str],
                  fine_tune_keys: List[str],
                  train_dataloader: DataLoader,
                  validation_dataloader: DataLoader,
@@ -56,7 +57,8 @@ class Client:
         self.idx = idx
         self.args = args
         self.model = copy.deepcopy(model)
-        self.representation_keys = representation_keys
+        self.global_keys = global_keys
+        self.local_keys = local_keys
         self.fine_tune_keys = fine_tune_keys
         self.train_dataloader = train_dataloader
         self.validation_dataloader = validation_dataloader
@@ -86,10 +88,6 @@ class Client:
                         f"[ local-level DP. The noise multiplier is manually set to {self.noise_multiplier} ]"
                     )
             # self.noise_multiplier = 0
-        self.local_keys, self.global_keys = self._get_local_and_global_keys()
-
-    def _get_local_and_global_keys(self):
-        raise NotImplementedError
 
     def _train_over_keys(self, model: nn.Module, keys: List[str], regularization=None):
         activate_in_keys(model, keys)
@@ -234,14 +232,16 @@ class Server:
     def __init__(self,
                  args,
                  model: nn.Module,
-                 representation_keys: List[str],
+                 global_keys: List[str],
+                 local_keys: List[str],
                  fine_tune_keys: List[str],
                  clients: List[Client],
                  remote_workers: List[Worker],
                  device):
         self.args = args
         self.model = model
-        self.representation_keys = representation_keys
+        self.global_keys = global_keys
+        self.local_keys = local_keys
         self.fine_tune_keys = fine_tune_keys
         self.clients = clients
         self.remote_workers = remote_workers
@@ -268,11 +268,6 @@ class Server:
             self.noise_multiplier = 0
             self.accountant = None
             self.clip_threshold = -1
-
-        self.local_keys, self.global_keys = self._get_local_and_global_keys()
-
-    def _get_local_and_global_keys(self):
-        raise NotImplementedError
 
     def broadcast(self, clients: List[Client]):
         sd_server = self.model.state_dict()

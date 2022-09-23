@@ -9,15 +9,12 @@ warnings.filterwarnings("ignore")
 
 class ClientPPSGD(Client):
 
-    def _get_local_and_global_keys(self):
-        return self.fine_tune_keys, self.representation_keys
-
     def step(self, epoch: int):
         # 1. Fine tune the head
         # _, _ = self._train_head()
         model_old = self.model
         model_new = copy.deepcopy(self.model)
-        _, _ = self._fine_tune_over_head(model_new, self.fine_tune_keys)
+        _, _ = self._fine_tune_over_head(model_new, self.local_keys)
 
         # 2. Calculate the performance of the representation from the previous iteration
         #    The performance is the
@@ -25,7 +22,7 @@ class ClientPPSGD(Client):
 
         # 3. Update the representation
         # train_loss, train_acc = self._train_representation() if epoch >=0 else (torch.tensor(0.), torch.tensor(0.))
-        train_loss, train_acc = self._train_over_keys(model_new, self.representation_keys) \
+        train_loss, train_acc = self._train_over_keys(model_new, self.global_keys) \
                                     if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
 
         # return the accuracy, the updated head, and the representation difference
@@ -34,9 +31,6 @@ class ClientPPSGD(Client):
 
 
 class ServerPPSGD(Server):
-
-    def _get_local_and_global_keys(self):
-        return self.fine_tune_keys, self.representation_keys
 
     def step(self, epoch: int):
         '''

@@ -15,9 +15,6 @@ warnings.filterwarnings("ignore")
 
 class ClientPMTL(Client):
 
-    def _get_local_and_global_keys(self):
-        return [], self.fine_tune_keys + self.representation_keys
-
     def step(self, epoch: int):
         model_head = copy.deepcopy(self.model)
         _, _ = self._fine_tune_over_head(model_head, self.fine_tune_keys)

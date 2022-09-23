@@ -78,17 +78,29 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
 
 
     # Init representation keys
-    representation_keys, fine_tune_keys = get_keys(args, global_model)
+    global_keys, local_keys, fine_tune_keys = get_keys(args, global_model)
+    print(
+        f"[ The global_keys keys are : ]",
+        f"{global_keys}"
+    )
+    print(
+        f"[ The local_keys keys are : ]",
+        f"{local_keys}"
+    )
+    print(
+        f"[ The fine-tine keys are : ]",
+        f"{fine_tune_keys}"
+    )
 
     # Init Clients
-    clients = [Client(idx, args, representation_keys, fine_tune_keys, traindlr, testdlr, validdlr, global_model, device)
+    clients = [Client(idx, args, global_keys, local_keys, fine_tune_keys, traindlr, testdlr, validdlr, global_model, device)
                for idx, (traindlr, validdlr, testdlr) in
                enumerate(zip(train_dataloaders, validation_dataloaders, test_dataloaders))]
 
     # Init Server
     remote_workers = create_remote_workers(args, device) # create remote workers with ray backend
 
-    server = Server(args, global_model, representation_keys, fine_tune_keys, clients, remote_workers, device)
+    server = Server(args, global_model, global_keys, local_keys, fine_tune_keys, clients, remote_workers, device)
 
 
     train_losses = []

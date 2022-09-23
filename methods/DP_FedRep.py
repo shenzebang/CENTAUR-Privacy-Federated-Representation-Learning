@@ -13,100 +13,12 @@ warnings.filterwarnings("ignore")
 
 class ClientDPFedRep(Client):
 
-    def _train_representation(self):
-        '''
-            The privacy engine is maintained by the server to ensure the compatibility with ray backend
-        '''
-
-        activate_in_keys(self.model, self.representation_keys)
-
-        self.model.train()
-        optimizer = optim.SGD(self.model.parameters(),
-                              lr=self.args.lr,
-                              momentum=self.args.momentum,
-                              weight_decay=self.args.weight_decay
-                              )
-        model, optimizer, train_loader = make_private(self.args, self.PE, self.model, optimizer, self.train_dataloader, self.noise_multiplier)
-
-
-        losses = []
-        top1_acc = []
-
-        if self.PE is not None and self.train_dataloader.batch_size > self.args.MAX_PHYSICAL_BATCH_SIZE:
-            train_loader = wrap_data_loader(
-                    data_loader=train_loader,
-                    max_batch_size=self.args.MAX_PHYSICAL_BATCH_SIZE,
-                    optimizer=optimizer
-            )
-
-        for rep_epoch in range(self.args.local_ep):
-            for _batch_idx, (data, target) in enumerate(train_loader):
-                data, target = flat_multiplicty_data(data.to(self.device), target.to(self.device))
-                output = model(data)
-                loss = self.criterion(output, target)
-                loss.backward()
-                aggregate_grad_sample(model, self.args.data_augmentation_multiplicity)
-                optimizer.step()
-                optimizer.zero_grad()
-                model.zero_grad()
-                losses.append(loss.item())
-
-                preds = np.argmax(output.detach().cpu().numpy(), axis=1)
-                labels = target.detach().cpu().numpy()
-                acc = accuracy(preds, labels)
-                top1_acc.append(acc)
-        # del optimizer
-
-        # Using PE to privitize the model will change the keys of model.state_dict()
-        # This subroutine restores the keys to the non-DP model
-        # self.model.load_state_dict(fix_DP_model_keys(self.args, model))
-
-        return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
-
-    def _train_head(self):
-        '''
-            Optimize over the local head
-        '''
-        deactivate_in_keys(self.model, self.representation_keys)
-        self.model.train()
-
-        optimizer = optim.SGD(self.model.parameters(),
-                              lr=self.args.lr_head,
-                              momentum=self.args.momentum,
-                              weight_decay=self.args.weight_decay
-                              )
-
-        losses = []
-        top1_acc = []
-        ft_dataloader = prepare_ft_dataloader(self.args, self.device, self.model, self.train_dataloader.dataset.d_split)
-        for head_epoch in range(self.args.local_head_ep):
-            for _batch_idx, (data, target) in enumerate(ft_dataloader):
-                data, target = data.to(self.device), target.to(self.device)
-                output = self.model(data, head=True)
-                loss = self.criterion(output, target)
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-                losses.append(loss.item())
-
-                preds = np.argmax(output.detach().cpu().numpy(), axis=1)
-                labels = target.detach().cpu().numpy()
-                acc = accuracy(preds, labels)
-                top1_acc.append(acc)
-
-        del ft_dataloader
-
-        return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
-
-    def _get_local_and_global_keys(self):
-        return self.fine_tune_keys, self.representation_keys
-
     def step(self, epoch: int):
         # 1. Fine tune the head
         # _, _ = self._train_head()
         model_old = self.model
         model_new = copy.deepcopy(self.model)
-        _, _ = self._fine_tune_over_head(model_new, self.fine_tune_keys)
+        _, _ = self._fine_tune_over_head(model_new, self.local_keys)
 
         # 2. Calculate the performance of the representation from the previous iteration
         #    The performance is the
@@ -114,7 +26,7 @@ class ClientDPFedRep(Client):
 
         # 3. Update the representation
         # train_loss, train_acc = self._train_representation() if epoch >=0 else (torch.tensor(0.), torch.tensor(0.))
-        train_loss, train_acc = self._train_over_keys(model_new, self.representation_keys) \
+        train_loss, train_acc = self._train_over_keys(model_new, self.global_keys) \
                                     if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
 
         # return the accuracy, the updated head, and the representation difference
@@ -123,9 +35,6 @@ class ClientDPFedRep(Client):
 
 
 class ServerDPFedRep(Server):
-
-    def _get_local_and_global_keys(self):
-        return self.fine_tune_keys, self.representation_keys
 
     def step(self, epoch: int):
         '''
