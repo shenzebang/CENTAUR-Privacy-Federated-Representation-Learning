@@ -105,7 +105,7 @@ def args_parser():
     parser.add_argument('--validation_ratio', type=float, default=.1)
 
     # Experiment configuration
-    parser.add_argument('--alg', type=str, default='DP_FedRep', choices=['DP_FedRep', 'DP_FedAvg_ft', 'PPSGD', 'Local'])
+    parser.add_argument('--alg', type=str, default='DP_FedRep', choices=['DP_FedRep', 'DP_FedAvg_ft', 'PPSGD', 'Local', 'PMTL'])
     parser.add_argument('--num_users', type=int, default=100, help="number of users: n")
     parser.add_argument('--shard_per_user', type=int, default=2, help="classes per user")
     parser.add_argument('--shard_size', type=int, default=200, help="size per shard")
@@ -155,6 +155,9 @@ def args_parser():
 
     ### PPSGD
     parser.add_argument('--lr_l', type=float, default=0.1, help="learning rate of the local model")
+
+    ### PMTL
+    parser.add_argument('--PMTL_lambda', type=float, default=0.1, help="weight of the regularization")
 
 
     ### Ray.tune configuration

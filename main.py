@@ -8,6 +8,7 @@ from methods.DP_FedAvg_ft import ServerDPFedAvgFT, ClientDPFedAvgFT
 from methods.DP_FedRep import ServerDPFedRep, ClientDPFedRep
 from methods.PPSGD import ServerPPSGD, ClientPPSGD
 from methods.DP_local_train import ServerLocalOnly, ClientLocalOnly
+from methods.PMTL import ServerPMTL, ClientPMTL
 from models.models import get_model
 from options import args_parser
 from utils.ray_remote_worker import *
@@ -19,6 +20,7 @@ ALGORITHMS = {
     "DP_FedRep"     : (ServerDPFedRep, ClientDPFedRep),
     "PPSGD"         : (ServerPPSGD, ClientPPSGD),
     "Local"         : (ServerLocalOnly, ClientLocalOnly),
+    "PMTL"          : (ServerPMTL, ClientPMTL),
 }
 
 

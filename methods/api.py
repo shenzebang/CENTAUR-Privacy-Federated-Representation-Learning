@@ -91,7 +91,7 @@ class Client:
     def _get_local_and_global_keys(self):
         raise NotImplementedError
 
-    def _train_over_keys(self, model: nn.Module, keys: List[str]):
+    def _train_over_keys(self, model: nn.Module, keys: List[str], regularization=None):
         activate_in_keys(model, keys)
 
         model.train()
@@ -118,6 +118,8 @@ class Client:
                 data, target = flat_multiplicty_data(data.to(self.device), target.to(self.device))
                 output = model(data)
                 loss = self.criterion(output, target)
+                reg = regularization(model) if regularization is not None else 0
+                loss = loss + reg
                 loss.backward()
                 aggregate_grad_sample(model, self.args.data_augmentation_multiplicity)
                 optimizer.step()
