@@ -26,36 +26,9 @@ ALGORITHMS = {
 
 
 
-# warnings.filterwarnings("ignore")
-
-def main(args, is_ray_tune = False, checkpoint_dir=None):
-    '''
-         "checkpoint_dir" will be used to ensure future compatibility with other ray.tune schedulers.
-    '''
-    if args.seed != 0:
-        seed_all(args.seed)
-        if args.verbose:
-            print(
-                f"[ Seed is set to {args.seed} to ensure reproducibility. ]"
-            )
-    else:
-        if args.verbose:
-            print(
-                f"[ No seed is manually set. ]"
-            )
-
-    if not args.disable_dp:
-        if args.dp_type == 'user-level-DP':
-            print(
-                "[ Ensuring user-level DP! ]"
-            )
-        else:
-            print(
-                "[ Ensuring local-level DP! ]"
-            )
+def single_run(args, is_ray_tune = False, checkpoint_dir=None):
 
     device = torch.device(f'cuda' if torch.cuda.is_available() else 'cpu')
-
 
     # Determine the algorithm
     print(
@@ -66,7 +39,6 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
     # Init Dataloaders
     train_dataloaders, validation_dataloaders, test_dataloaders = prepare_dataloaders(args)
 
-
     # Init model
     # If use ray, leave the models on 'cpu' to save cuda memory
     global_model = get_model(args) if args.use_ray else get_model(args).to(device)
@@ -76,7 +48,6 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
         summary(global_model, input_size=(1, 28, 28), device='cpu')
 
     restore_from_checkpoint(args, global_model, checkpoint_dir)
-
 
     # Init representation keys
     global_keys, local_keys, fine_tune_keys = get_keys(args, global_model)
@@ -97,16 +68,16 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
     logger = Logger()
 
     # Init Clients
-    clients = [Client(idx, args, global_keys, local_keys, fine_tune_keys, traindlr, testdlr, validdlr, global_model, device)
-               for idx, (traindlr, validdlr, testdlr) in
-               enumerate(zip(train_dataloaders, validation_dataloaders, test_dataloaders))]
+    clients = [
+        Client(idx, args, global_keys, local_keys, fine_tune_keys, traindlr, testdlr, validdlr, global_model, device)
+        for idx, (traindlr, validdlr, testdlr) in
+        enumerate(zip(train_dataloaders, validation_dataloaders, test_dataloaders))]
 
     # Init Server
-    remote_workers = create_remote_workers(args, device) # create remote workers with ray backend
+    remote_workers = create_remote_workers(args, device)  # create remote workers with ray backend
 
-    server = Server(args, global_model, global_keys, local_keys, fine_tune_keys, clients, remote_workers, logger, device)
-
-
+    server = Server(args, global_model, global_keys, local_keys, fine_tune_keys, clients, remote_workers, logger,
+                    device)
 
     train_losses = []
     train_accs = []
@@ -123,48 +94,89 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
                 torch.save(server.model.state_dict(), path)
 
             tune.report(
-                train_loss  = train_loss.item(),
-                train_acc   = train_acc.item(),
-                validation_loss = validation_loss.item(),
-                validation_acc = validation_acc.item(),
-                test_loss   = test_loss.item(),
-                test_acc    = test_acc.item()
+                train_loss=train_loss.item(),
+                train_acc=train_acc.item(),
+                validation_loss=validation_loss.item(),
+                validation_acc=validation_acc.item(),
+                test_loss=test_loss.item(),
+                test_acc=test_acc.item()
             )
 
-        train_losses.append(train_loss.item())
-        train_accs.append(train_acc.item())
-        validation_losses.append(validation_loss.item())
-        validation_accs.append(validation_acc.item())
-        test_losses.append(test_loss.item())
-        test_accs.append(test_acc.item())
-
-    # # Test the final model
-    # # 1. Disable the partial participation
-    # server.args.frac_participate = 1.
-    # # 2. Call server.step(-1) to obtain train/test results WITHOUT update the model
-    # train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = server.step(-1)
-    # # 3. Print the results
-    # print(
-    #     f"[ Final Model Performance ] After {args.epochs} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
-    #     f"Validation Loss: {validation_loss:.2f} Validation Acc@1: {validation_acc * 100:.2f} \t"
-    #     f"Test loss: {test_loss:.2f} Test acc@1: {test_acc * 100:.2f} "
-    # )
-
-    # Report the model with the best validation accuracy
-    index = validation_accs.index(max(validation_accs))
-    print(
-        f"[ Performance of Model with the Best Validation Accuracy ] At {index} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
-        f"Validation Loss: {validation_losses[index]:.2f} Validation Acc@1: {validation_accs[index] * 100:.2f} \t"
-        f"Test loss: {test_losses[index]:.2f} Test acc@1: {test_accs[index] * 100:.2f} "
-    )
-
-    plot_directory = f"./plot/fairness_gap"
-    os.makedirs(plot_directory, exist_ok=True)
-    plot_stats_in_logger(logger, index, plot_directory)
+        train_losses.append(train_loss)
+        train_accs.append(train_acc)
+        validation_losses.append(validation_loss)
+        validation_accs.append(validation_acc)
+        test_losses.append(test_loss)
+        test_accs.append(test_acc)
 
     # return results
-    return train_losses, train_accs, validation_losses, validation_accs, test_losses, test_accs, server.model.state_dict()
+    return train_losses, train_accs, validation_losses, validation_accs, test_losses, test_accs, logger
 
+def main(args, is_ray_tune = False, checkpoint_dir=None):
+    '''
+         "checkpoint_dir" will be used to ensure future compatibility with other ray.tune schedulers.
+    '''
+    if not args.disable_dp:
+        if args.dp_type == 'user-level-DP':
+            print(
+                "[ Ensuring user-level DP! ]"
+            )
+        else:
+            print(
+                "[ Ensuring local-level DP! ]"
+            )
+
+    best_validation_losses_run = []
+    best_validation_accs_run = []
+    best_test_losses_run = []
+    best_test_accs_run = []
+
+    seed_run = args.seed
+    for run in range(args.n_runs):
+        if seed_run != 0:
+            seed_all(seed_run)
+            if args.verbose:
+                print(
+                    f"[ Seed is set to {seed_run} to ensure reproducibility in run {run}. ]"
+                )
+        else:
+            if args.verbose:
+                print(
+                    f"[ No seed is manually set in run {run}. ]"
+                )
+
+        seed_run = seed_run * 2
+
+        train_losses, train_accs, validation_losses, validation_accs, test_losses, test_accs, logger = single_run(args, is_ray_tune, checkpoint_dir)
+
+        # Report the model with the best validation accuracy
+        index = validation_accs.index(max(validation_accs))
+        print(
+            f"[ Performance of Model with the Best Validation Accuracy run {run}] At {index} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
+            f"Validation Loss: {validation_losses[index]:.2f} Validation Acc@1: {validation_accs[index] * 100:.2f} \t"
+            f"Test loss: {test_losses[index]:.2f} Test acc@1: {test_accs[index] * 100:.2f} "
+        )
+
+        plot_directory = f"./plot/fairness_gap"
+        os.makedirs(plot_directory, exist_ok=True)
+        plot_stats_in_logger(run, logger, index, plot_directory)
+
+        best_validation_losses_run.append(validation_losses[index])
+        best_validation_accs_run.append(validation_accs[index])
+        best_test_losses_run.append(test_losses[index])
+        best_test_accs_run.append(test_accs[index])
+
+    best_validation_losses_std, best_validation_losses_mean = torch.std_mean(torch.stack(best_validation_losses_run))
+    best_validation_accs_std, best_validation_accs_mean = torch.std_mean(torch.stack(best_validation_accs_run))
+    best_test_losses_std, best_test_losses_mean = torch.std_mean(torch.stack(best_test_losses_run))
+    best_test_accs_std, best_test_accs_mean = torch.std_mean(torch.stack(best_test_accs_run))
+    print(
+        f"[ Performance of Model with the Best Validation Accuracy averaged over {args.n_runs} runs] On dataset {args.dataset}, {args.alg} achieves\t"
+        f"Validation Loss: {best_validation_losses_mean:.2f} ({best_validation_losses_std:.2f}) "
+        f"Validation Acc@1: {best_validation_accs_mean * 100:.2f} ({best_validation_accs_std * 100:.2f}) \t"
+        f"Test loss: {best_test_losses_mean:.2f} ({best_test_losses_std:.2f})"
+        f" Test acc@1: {best_test_accs_mean * 100:.2f} ({best_test_accs_std * 100:.2f})"
+    )
 
 
 
@@ -192,8 +204,8 @@ if __name__ == '__main__':
                 3.  The outputs (loss, accuracy) of <main> will be returned using ray.tune.report.
     ####################################################################################################################            
     '''
-    train_losses, train_accs, validation_losses, validation_accs, test_losses, test_accs, model_state = main(args)
-
+    # train_losses, train_accs, validation_losses, validation_accs, test_losses, test_accs, model_state = main(args)
+    main(args)
     # '''
     # ####################################################################################################################
     #     If this is the main file, call <test_configuration> to test the trained model with "args" as it is.
