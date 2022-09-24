@@ -12,6 +12,7 @@ from methods.PMTL import ServerPMTL, ClientPMTL
 from models.models import get_model
 from options import args_parser
 from utils.ray_remote_worker import *
+from utils.plot_utils import plot_stats_in_logger
 from ray import tune
 
 
@@ -25,7 +26,7 @@ ALGORITHMS = {
 
 
 
-warnings.filterwarnings("ignore")
+# warnings.filterwarnings("ignore")
 
 def main(args, is_ray_tune = False, checkpoint_dir=None):
     '''
@@ -92,6 +93,9 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
         f"{fine_tune_keys}"
     )
 
+    # Init logger
+    logger = Logger()
+
     # Init Clients
     clients = [Client(idx, args, global_keys, local_keys, fine_tune_keys, traindlr, testdlr, validdlr, global_model, device)
                for idx, (traindlr, validdlr, testdlr) in
@@ -100,7 +104,8 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
     # Init Server
     remote_workers = create_remote_workers(args, device) # create remote workers with ray backend
 
-    server = Server(args, global_model, global_keys, local_keys, fine_tune_keys, clients, remote_workers, device)
+    server = Server(args, global_model, global_keys, local_keys, fine_tune_keys, clients, remote_workers, logger, device)
+
 
 
     train_losses = []
@@ -133,25 +138,29 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
         test_losses.append(test_loss.item())
         test_accs.append(test_acc.item())
 
-    # Test the final model
-    # 1. Disable the partial participation
-    server.args.frac_participate = 1.
-    # 2. Call server.step(-1) to obtain train/test results WITHOUT update the model
-    train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = server.step(-1)
-    # 3. Print the results
-    print(
-        f"[ Final Model Performance ] After {args.epochs} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
-        f"Validation Loss: {validation_loss:.2f} Validation Acc@1: {validation_acc * 100:.2f} \t"
-        f"Test loss: {test_loss:.2f} Test acc@1: {test_acc * 100:.2f} "
-    )
+    # # Test the final model
+    # # 1. Disable the partial participation
+    # server.args.frac_participate = 1.
+    # # 2. Call server.step(-1) to obtain train/test results WITHOUT update the model
+    # train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = server.step(-1)
+    # # 3. Print the results
+    # print(
+    #     f"[ Final Model Performance ] After {args.epochs} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
+    #     f"Validation Loss: {validation_loss:.2f} Validation Acc@1: {validation_acc * 100:.2f} \t"
+    #     f"Test loss: {test_loss:.2f} Test acc@1: {test_acc * 100:.2f} "
+    # )
 
     # Report the model with the best validation accuracy
     index = validation_accs.index(max(validation_accs))
     print(
-        f"[ Performance of Model with the Best Validation Accuracy ] After {index} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
+        f"[ Performance of Model with the Best Validation Accuracy ] At {index} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
         f"Validation Loss: {validation_losses[index]:.2f} Validation Acc@1: {validation_accs[index] * 100:.2f} \t"
         f"Test loss: {test_losses[index]:.2f} Test acc@1: {test_accs[index] * 100:.2f} "
     )
+
+    plot_directory = f"./plot/fairness_gap"
+    os.makedirs(plot_directory, exist_ok=True)
+    plot_stats_in_logger(logger, index, plot_directory)
 
     # return results
     return train_losses, train_accs, validation_losses, validation_accs, test_losses, test_accs, server.model.state_dict()

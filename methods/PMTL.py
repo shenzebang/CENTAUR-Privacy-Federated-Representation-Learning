@@ -11,7 +11,7 @@ from utils.data_utils import prepare_ft_dataloader
 from utils.common_utils import *
 from utils.ray_remote_worker import *
 from methods.api import Server, Client, Results
-warnings.filterwarnings("ignore")
+
 
 class ClientPMTL(Client):
 
@@ -33,7 +33,7 @@ class ClientPMTL(Client):
             return reg * self.args.PMTL_lambda
 
 
-        train_loss, train_acc = self._train_over_keys(model_new, self.global_keys, regularization) \
+        train_loss, train_acc = self._train_over_keys(model_new, self.global_keys, regularization=regularization) \
                                 if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
 
         # return the accuracy and the model difference

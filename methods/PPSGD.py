@@ -5,7 +5,7 @@ from methods.api import Server, Client, Results
 from utils.common_utils import *
 from utils.ray_remote_worker import *
 
-warnings.filterwarnings("ignore")
+
 
 class ClientPPSGD(Client):
 

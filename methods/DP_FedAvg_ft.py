@@ -9,7 +9,7 @@ from utils.data_utils import prepare_ft_dataloader
 from utils.common_utils import *
 from utils.ray_remote_worker import *
 from methods.api import Server, Client, Results
-warnings.filterwarnings("ignore")
+
 
 class ClientDPFedAvgFT(Client):
 

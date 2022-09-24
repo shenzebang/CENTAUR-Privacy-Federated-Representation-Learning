@@ -8,38 +8,6 @@ from utils.data_utils import prepare_ft_dataloader
 from utils.common_utils import *
 from utils.ray_remote_worker import *
 import copy
-warnings.filterwarnings("ignore")
-
-class Results:
-    def __init__(self):
-        self.train_losses = []
-        self.train_accs = []
-        self.validation_losses = []
-        self.validation_accs = []
-        self.test_losses = []
-        self.test_accs = []
-
-    def add(self, result):
-        train_loss = result["train loss"]
-        train_acc = result["train acc"]
-        validation_loss = result["validation loss"]
-        validation_acc = result["validation acc"]
-        test_loss = result["test loss"]
-        test_acc = result["test acc"]
-        self.train_losses.append(train_loss)
-        self.train_accs.append(train_acc)
-        self.validation_losses.append(validation_loss)
-        self.validation_accs.append(validation_acc)
-        self.test_losses.append(test_loss)
-        self.test_accs.append(test_acc)
-
-    def mean(self):
-        return (torch.mean(torch.stack(self.train_losses)),
-                torch.mean(torch.stack(self.train_accs)),
-                torch.mean(torch.stack(self.validation_losses)),
-                torch.mean(torch.stack(self.validation_accs)),
-                torch.mean(torch.stack(self.test_losses)),
-                torch.mean(torch.stack(self.test_accs)))
 
 class Client:
     def __init__(self,
@@ -89,7 +57,7 @@ class Client:
                     )
             # self.noise_multiplier = 0
 
-    def _train_over_keys(self, model: nn.Module, keys: List[str], regularization=None):
+    def _train_over_keys(self, model: nn.Module, keys: List[str], regularization=None, test_freq_local=0):
         activate_in_keys(model, keys)
 
         model.train()
@@ -129,6 +97,13 @@ class Client:
                 labels = target.detach().cpu().numpy()
                 acc = accuracy(preds, labels)
                 top1_acc.append(acc)
+            if test_freq_local > 0 and rep_epoch % test_freq_local == 0:
+                validation_loss, validation_acc, test_loss, test_acc = self.test(model)
+                print(
+                    f"After {rep_epoch} local epochs, on dataset {self.args.dataset}, {self.args.alg} achieves\t"
+                    f"Validation Loss: {validation_loss:.2f} Validation Acc@1: {validation_acc * 100:.2f} \t"
+                    f"Test loss: {test_loss:.2f} Test acc@1: {test_acc * 100:.2f} "
+                )
         # del optimizer
 
         # Using PE to privitize the model will change the keys of model.state_dict()
@@ -212,12 +187,12 @@ class Client:
 
 
         result_dict = {
-            "train loss": train_loss,
-            "train acc": train_acc,
-            "validation loss": validation_loss,
-            "validation acc": validation_acc,
-            "test loss": test_loss,
-            "test acc": test_acc,
+            "train loss": train_loss.cpu(),
+            "train acc": train_acc.cpu(),
+            "validation loss": validation_loss.cpu(),
+            "validation acc": validation_acc.cpu(),
+            "test loss": test_loss.cpu(),
+            "test acc": test_acc.cpu(),
             "sd_local": sd_local,
             "sd_global_diff": sd_global_diff,
             "PE": self.PE if self.idx == 0 else None
@@ -237,6 +212,7 @@ class Server:
                  fine_tune_keys: List[str],
                  clients: List[Client],
                  remote_workers: List[Worker],
+                 logger: Logger,
                  device):
         self.args = args
         self.model = model
@@ -245,6 +221,7 @@ class Server:
         self.fine_tune_keys = fine_tune_keys
         self.clients = clients
         self.remote_workers = remote_workers
+        self.logger = logger
         self.device = device
         if not args.disable_dp and args.dp_type == "user-level-DP":
             self.accountant = RDPAccountant()
@@ -298,6 +275,16 @@ class Server:
             The current implementation did not use ray backend.
         '''
         results = compute_with_remote_workers(self.remote_workers, clients, epoch)
+
+        stats_dict_all = {
+            "train loss": torch.stack([result["train loss"] for result in results]),
+            "train acc": torch.stack([result["train acc"] for result in results]),
+            "validation loss": torch.stack([result["validation loss"] for result in results]),
+            "validation acc": torch.stack([result["validation acc"] for result in results]),
+            "test loss": torch.stack([result["test loss"] for result in results]),
+            "test acc": torch.stack([result["test acc"] for result in results]),
+        }
+        self.logger.log(stats_dict_all, epoch)
 
         result_dict = {
             "train loss": torch.mean(torch.stack([result["train loss"] for result in results])),

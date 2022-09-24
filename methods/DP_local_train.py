@@ -1,19 +1,15 @@
-import warnings
-
-from opacus.utils.batch_memory_manager import wrap_data_loader
-from torch import optim
-
 from methods.api import Server, Client, Results
 from utils.common_utils import *
 from utils.ray_remote_worker import *
 
-warnings.filterwarnings("ignore")
+
 
 class ClientLocalOnly(Client):
 
     def step(self, step: int):
         # train_loss, train_acc = self._train() if step >= 0 else (torch.tensor(0.), torch.tensor(0.))
-        train_loss, train_acc = self._train_over_keys(self.model, self.local_keys) \
+        test_freq_local = 10 if self.idx % 50 == 0 else 0
+        train_loss, train_acc = self._train_over_keys(self.model, self.local_keys, test_freq_local=test_freq_local) \
                                 if step >= 0 else (torch.tensor(0.), torch.tensor(0.))
 
         validation_loss, validation_acc, test_loss, test_acc = self.test(self.model)
