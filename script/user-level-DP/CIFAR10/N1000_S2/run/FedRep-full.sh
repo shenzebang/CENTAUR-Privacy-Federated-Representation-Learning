@@ -10,7 +10,7 @@ args=(--alg DP_FedRep
 #     --data_augmentation_multiplicity 16
     --epochs 400
     --seed 1
-    --num_users 1000
+    --num_users 500
     #  DP configuration
     --disable-dp
     --epsilon 1

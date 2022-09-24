@@ -3,14 +3,14 @@ args=(--alg DP_FedRep
     --model cnn
     #  dataset configuration
     --dataset cifar10
-    --shard_per_user 5
+    --shard_per_user 2
     --num_classes 10
     #  experiment configuration
 #     --data_augmentation
 #     --data_augmentation_multiplicity 16
     --epochs 400
     --seed 1
-    --num_users 1000
+    --num_users 500
     #  DP configuration
     --disable-dp
     --epsilon 1
