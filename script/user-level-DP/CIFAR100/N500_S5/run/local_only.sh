@@ -10,9 +10,12 @@ args=(--alg Local
     --num_users 500
     --shard_per_user 5
     --seed 1
-    --n_runs 1
+    --n_runs 5
     #  DP configuration
     --disable-dp
+    --epsilon 1
+    --delta 1e-5
+    --dp_clip 1
     #  save/load configuration
     #  backend configuration
     --use_ray
@@ -21,7 +24,7 @@ args=(--alg Local
     #  train configuration
 #     --verbose
     --lr 1e-2
-    --batch_size 100
+    --batch_size 10
     --local_ep 500
     --momentum 0
     )

@@ -1,37 +1,37 @@
-args=(tune_DP_methods.py
-        #  algorithm configuration
-        --alg DP_FedRep
+args=(#  algorithm configuration
+        --alg PPSGD
         #  model configuration
         --model cnn
         #  dataset configuration
-        --dataset cifar10
-        --shard_per_user 2
-        --num_classes 10
+        --dataset cifar100
+        --shard_per_user 5
+        --num_classes 100
         #  experiment configuration
         #      --data_augmentation
-        --epochs 500
+        --epochs 200
         --seed 1
-        --num_users 100
+        --num_users 1000
+        --n_runs 1
         #  DP configuration
         #      --disable-dp
+        --dp_type user-level-DP
         --epsilon 1
         --delta 1e-5
-        --dp_clip 1
+        --dp_clip .01
         #  save/load configuration
         #  backend configuration
-        --gpu 0-1-2-3
         --use_ray
-        --ray_gpu_fraction 0.3
+        --ray_gpu_fraction 0.33
         #  test configuration
         #  train configuration
-        --batch_size 4000
-        --MAX_PHYSICAL_BATCH_SIZE 100
+        --frac_participate 1
+        --batch_size 100
         --local_ep 1
         # --verbose
         # algorithm specific configuration
-        --lr-rep 1e-1
-        --lr-head 1e-2
-        --local_head_ep 15
+        --lr 1e-2
+        --lr-head 1e-1
+        --local_head_ep 1
      )
 
-python "${args[@]}"
+CUDA_VISIBLE_DEVICES=0,1,2,3 python main.py "${args[@]}"
