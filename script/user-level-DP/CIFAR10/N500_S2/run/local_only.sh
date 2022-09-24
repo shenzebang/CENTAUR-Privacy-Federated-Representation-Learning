@@ -10,7 +10,7 @@ args=(--alg Local
     --num_users 500
     --shard_per_user 2
     --seed 1
-    --n_runs 1
+    --n_runs 5
     #  DP configuration
     --disable-dp
     --epsilon 1
@@ -24,7 +24,7 @@ args=(--alg Local
     #  train configuration
 #     --verbose
     --lr 1e-2
-    --batch_size 64
+    --batch_size 10
     --local_ep 500
     --momentum 0
     )

@@ -8,9 +8,10 @@ args=(#  algorithm configuration
         --num_classes 10
         #  experiment configuration
         #      --data_augmentation
-        --epochs 500
+        --epochs 200
         --seed 1
         --num_users 500
+        --n_runs 1
         #  DP configuration
         #      --disable-dp
         --dp_type user-level-DP
