@@ -388,7 +388,10 @@ class Logger:
         else:
             if epoch != self.current_epoch + 1:
                 raise ValueError("The stats should be logger sequentially!")
+
+            # This is a new epoch
             self.current_epoch = epoch
+            # Store the stats of the current epoch in hisotry
             self.train_losses_history.append(torch.cat(self.train_losses_current, dim=0))
             self.train_accs_history.append(torch.cat(self.train_accs_current, dim=0))
             self.validation_losses_history.append(torch.cat(self.validation_losses_current, dim=0))
@@ -396,7 +399,11 @@ class Logger:
             self.test_losses_history.append(torch.cat(self.test_losses_current, dim=0))
             self.test_accs_history.append(torch.cat(self.test_accs_current, dim=0))
 
+            # Clear the current stats
             self._reset()
+
+            # Store the input stats
+            self.log(stats_dict_all, epoch)
             
 
     def _reset(self):
