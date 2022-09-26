@@ -40,6 +40,44 @@ class MLP(nn.Module):
         else:
             return self.layer_out(x)
 
+class MLP_PPSGD(nn.Module):
+    def __init__(self, args):
+        super(MLP_PPSGD, self).__init__()
+        dim_in = 28 * 28
+        self.layer_input = nn.Linear(dim_in, 512)
+        self.relu = nn.ReLU()
+        self.layer_hidden1 = nn.Linear(512, 256)
+        self.layer_hidden2 = nn.Linear(256, 64)
+        self.layer_out = nn.Linear(64, args.num_classes)
+        self.layer_out2 = nn.Linear(64, args.num_classes)
+        self.cls = args.num_classes
+
+        self.weight_keys = [['layer_input.weight', 'layer_input.bias'],
+                            ['layer_hidden1.weight', 'layer_hidden1.bias'],
+                            ['layer_hidden2.weight', 'layer_hidden2.bias'],
+                            ['layer_out.weight', 'layer_out.bias'],
+                            ['layer_out2.weight', 'layer_out2.bias']
+                            ]
+
+    def forward(self, x, representation=False, head=False):
+        if representation and head:
+            raise ValueError("At most one of representation and head can be True!")
+
+        if head:
+            return self.layer_out(x) + self.layer_out2(x)
+
+        x = x.view(-1, x.shape[1]*x.shape[-2]*x.shape[-1])
+        x = self.layer_input(x)
+        x = self.relu(x)
+        x = self.layer_hidden1(x)
+        x = self.relu(x)
+        x = self.layer_hidden2(x)
+        x = self.relu(x)
+
+        if representation: # the last layer (head) is omitted
+            return x
+        else:
+            return self.layer_out(x) + self.layer_out2(x)
 
 class CNNCifar10(nn.Module):
     def __init__(self, args):
@@ -116,7 +154,6 @@ class CNNCifar10_PPSGD(nn.Module):
             return x
         else:
             return self.fc3(x) + self.fc4(x)
-
 
 class CNNCifar10_BN(nn.Module):  # with batch normalization
     def __init__(self, args):
@@ -247,7 +284,6 @@ class CNNCifar100_PPSGD(nn.Module):
             return x
         else:
             return self.fc3(x) + self.fc4(x)
-
 
 class CNNCifar100_BN(nn.Module):  # with batch normalization
     def __init__(self, args):
