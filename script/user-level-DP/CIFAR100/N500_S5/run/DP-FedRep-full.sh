@@ -8,7 +8,7 @@ args=(--alg DP_FedRep
     #  experiment configuration
 #     --data_augmentation
 #     --data_augmentation_multiplicity 16
-    --epochs 200
+    --epochs 400
     --seed 1
     --num_users 500
     --n_runs 1
@@ -24,6 +24,8 @@ args=(--alg DP_FedRep
     --use_ray
     --ray_gpu_fraction .33
     #  test configuration
+    --print_freq 2
+    --print_diff_norm
     #  train configuration
     --frac_participate 1
     --batch_size 100

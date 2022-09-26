@@ -265,7 +265,7 @@ class Server:
         noise_level = self.args.dp_clip * self.noise_multiplier
 
         sd = server_update_with_clip(sd, sds_global_diff, self.global_keys, self.clip_threshold,
-                                     self.args.global_lr, noise_level, self.args.aggr)
+                                     self.args.global_lr, noise_level, self.args.aggr, self.args.print_diff_norm)
 
         self.model.load_state_dict(sd)
 

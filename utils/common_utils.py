@@ -289,7 +289,7 @@ AGGR_OPS = {
 
 
 def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict], keys: List[str],
-                            clip_threshold=-1, global_lr=1, noise_level=0, aggr='mean'):
+                            clip_threshold=-1, global_lr=1, noise_level=0, aggr='mean', print_diff_norm=False):
     '''
         Only the key in "keys" will be updated. If "keys" is empty, all keys will be updated.
     '''
@@ -313,6 +313,9 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
                 norm_diff_cid_square = [torch.norm(sd_global_diff[key]) ** 2 for key in keys]
                 norm_diff_clients[cid] = torch.sqrt(torch.sum(torch.stack(norm_diff_cid_square)))
 
+            if print_diff_norm:
+                norm_diff_std, norm_diff_mean= torch.std_mean(torch.stack(norm_diff_clients))
+                print(f"[Norm diff mean: {norm_diff_mean: .5f}, norm diff std: {norm_diff_std: .5f}]")
             # 2. Rescale the diffs
             rescale_clients = [1 if norm_diff_client<clip_threshold else clip_threshold/norm_diff_client
                                  for norm_diff_client in norm_diff_clients]
