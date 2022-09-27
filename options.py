@@ -45,6 +45,12 @@ def args_parser():
     parser.add_argument('--model_dir', type=str, default='DoNotSave', help='saved models directory')
     parser.add_argument('--sample_size_var', type=float, default=0, help='positive value for varying sample sizes')
 
+    parser.add_argument(
+        "--print_diff_norm",
+        action="store_true",
+        default=False,
+        help="print the mean and std of the local difference norm",
+    )
 
     #########
 

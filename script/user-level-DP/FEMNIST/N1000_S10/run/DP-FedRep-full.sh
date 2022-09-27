@@ -1,27 +1,26 @@
-args=(--alg DP_FedAvg_ft
+args=(--alg DP_FedRep
     #  model configuration
-    --model cnn
+    --model mlp
     #  dataset configuration
-    --dataset cifar100
-    --shard_per_user 20
-    --num_classes 100
+    --dataset emnist_l
+    --shard_per_user 10
+    --num_classes 20
     #  experiment configuration
-#     --data_augmentation
-#     --data_augmentation_multiplicity 16
-    --epochs 200
+    #         --data_augmentation
+    #         --data_augmentation_multiplicity 16
+    --epochs 400
     --seed 1
-    --num_users 500
-    --n_runs 1
+    --num_users 1000
     #  DP configuration
     #      --disable-dp
     --dp_type user-level-DP
     --epsilon 1
     --delta 1e-5
-    --dp_clip .01
+    --dp_clip .1
     #  save/load configuration
     #  backend configuration
     --use_ray
-    --ray_gpu_fraction 0.33
+    --ray_gpu_fraction .25
     #  test configuration
     --print_freq 2
     --print_diff_norm

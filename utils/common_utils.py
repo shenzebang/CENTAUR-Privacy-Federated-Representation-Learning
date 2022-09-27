@@ -73,6 +73,14 @@ def get_keys(args, global_model):
                 local_keys = [key for key in all_keys if key not in global_keys]
             else:
                 raise NotImplementedError
+        elif 'mnist' in args.dataset:
+            if args.model == 'mlp':
+                global_keys = [global_model.weight_keys[i] for i in [0, 1, 2, 3]]
+                global_keys = list(itertools.chain.from_iterable(global_keys))
+                all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+                local_keys = [key for key in all_keys if key not in global_keys]
+            else:
+                raise NotImplementedError
         else:
             raise NotImplementedError
 
@@ -88,6 +96,14 @@ def get_keys(args, global_model):
                 local_keys = [key for key in all_keys if key not in global_keys]
             else:
                 raise NotImplementedError
+        elif 'mnist' in args.dataset:
+            if args.model == 'mlp':
+                global_keys = [global_model.weight_keys[i] for i in [0, 1, 2]]
+                global_keys = list(itertools.chain.from_iterable(global_keys))
+                all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+                local_keys = [key for key in all_keys if key not in global_keys]
+            else:
+                raise NotImplementedError
         else:
             raise NotImplementedError
 
@@ -95,10 +111,18 @@ def get_keys(args, global_model):
         return global_keys, local_keys, []
 
 
-    if args.alg == 'DP_FedAvg_ft':
+    if args.alg == 'DP_FedAvg_ft' or args.alg == 'PMTL':
         if 'cifar' in args.dataset:
             if args.model == 'cnn':
                 representation_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
+                representation_keys = list(itertools.chain.from_iterable(representation_keys))
+                all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+                head_keys = [key for key in all_keys if key not in representation_keys]
+            else:
+                raise NotImplementedError
+        elif 'mnist' in args.dataset:
+            if args.model == 'mlp':
+                representation_keys = [global_model.weight_keys[i] for i in [0, 1, 2]]
                 representation_keys = list(itertools.chain.from_iterable(representation_keys))
                 all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
                 head_keys = [key for key in all_keys if key not in representation_keys]
@@ -110,24 +134,14 @@ def get_keys(args, global_model):
         # there is no local_keys for DP_FedAvg_ft
         return all_keys, [], head_keys
 
-    if args.alg == 'PMTL':
-        if 'cifar' in args.dataset:
-            if args.model == 'cnn':
-                representation_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
-                representation_keys = list(itertools.chain.from_iterable(representation_keys))
-                all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
-                head_keys = [key for key in all_keys if key not in representation_keys]
-            else:
-                raise NotImplementedError
-        else:
-            raise NotImplementedError
-
-        # there is no local_keys for PMTL
-        return all_keys, [], head_keys
-
     if args.alg == 'Local':
         if 'cifar' in args.dataset:
             if args.model == 'cnn':
+                all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+            else:
+                raise NotImplementedError
+        elif 'mnist' in args.dataset:
+            if args.model == 'mlp':
                 all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
             else:
                 raise NotImplementedError
@@ -289,7 +303,7 @@ AGGR_OPS = {
 
 
 def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict], keys: List[str],
-                            clip_threshold=-1, global_lr=1, noise_level=0, aggr='mean'):
+                            clip_threshold=-1, global_lr=1, noise_level=0, aggr='mean', print_diff_norm=False):
     '''
         Only the key in "keys" will be updated. If "keys" is empty, all keys will be updated.
     '''
@@ -313,6 +327,9 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
                 norm_diff_cid_square = [torch.norm(sd_global_diff[key]) ** 2 for key in keys]
                 norm_diff_clients[cid] = torch.sqrt(torch.sum(torch.stack(norm_diff_cid_square)))
 
+            if print_diff_norm:
+                norm_diff_std, norm_diff_mean= torch.std_mean(torch.stack(norm_diff_clients))
+                print(f"[Norm diff mean: {norm_diff_mean: .5f}, norm diff std: {norm_diff_std: .5f}]")
             # 2. Rescale the diffs
             rescale_clients = [1 if norm_diff_client<clip_threshold else clip_threshold/norm_diff_client
                                  for norm_diff_client in norm_diff_clients]
