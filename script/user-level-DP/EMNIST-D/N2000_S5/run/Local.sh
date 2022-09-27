@@ -10,7 +10,7 @@ args=(--alg Local
     --num_users 2000
     --shard_per_user 5
     --seed 1
-    --n_runs 1
+    --n_runs 3
     #  DP configuration
     --disable-dp
     #  save/load configuration
@@ -23,7 +23,7 @@ args=(--alg Local
 #     --verbose
     --lr 1e-2
     --batch_size 100
-    --local_ep 80
+    --local_ep 200
     --momentum 0
     )
 

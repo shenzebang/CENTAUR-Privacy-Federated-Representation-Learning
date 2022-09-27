@@ -8,7 +8,7 @@ args=(--alg PMTL
     #  experiment configuration
     #         --data_augmentation
     #         --data_augmentation_multiplicity 16
-    --epochs 200
+    --epochs 40
     --seed 1
     --num_users 2000
     --n_runs 3
