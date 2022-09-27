@@ -7,11 +7,11 @@ class MLP(nn.Module):
     def __init__(self, args):
         super(MLP, self).__init__()
         dim_in = 28 * 28
-        self.layer_input = nn.Linear(dim_in, 512)
+        self.layer_input = nn.Linear(dim_in, 256)
         self.relu = nn.ReLU()
-        self.layer_hidden1 = nn.Linear(512, 256)
-        self.layer_hidden2 = nn.Linear(256, 64)
-        self.layer_out = nn.Linear(64, args.num_classes)
+        self.layer_hidden1 = nn.Linear(256, 128)
+        self.layer_hidden2 = nn.Linear(128, 16)
+        self.layer_out = nn.Linear(16, args.num_classes)
         self.cls = args.num_classes
 
         self.weight_keys = [['layer_input.weight', 'layer_input.bias'],
@@ -44,12 +44,12 @@ class MLP_PPSGD(nn.Module):
     def __init__(self, args):
         super(MLP_PPSGD, self).__init__()
         dim_in = 28 * 28
-        self.layer_input = nn.Linear(dim_in, 512)
+        self.layer_input = nn.Linear(dim_in, 256)
         self.relu = nn.ReLU()
-        self.layer_hidden1 = nn.Linear(512, 256)
-        self.layer_hidden2 = nn.Linear(256, 64)
-        self.layer_out = nn.Linear(64, args.num_classes)
-        self.layer_out2 = nn.Linear(64, args.num_classes)
+        self.layer_hidden1 = nn.Linear(256, 128)
+        self.layer_hidden2 = nn.Linear(128, 32)
+        self.layer_out = nn.Linear(32, args.num_classes)
+        self.layer_out2 = nn.Linear(32, args.num_classes)
         self.cls = args.num_classes
 
         self.weight_keys = [['layer_input.weight', 'layer_input.bias'],

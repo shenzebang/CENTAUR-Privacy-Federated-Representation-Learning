@@ -2,9 +2,9 @@ args=(--alg DP_FedAvg_ft
     #  model configuration
     --model mlp
     #  dataset configuration
-    --dataset emnist_l
-    --shard_per_user 10
-    --num_classes 20
+    --dataset emnist_d
+    --shard_per_user 5
+    --num_classes 10
     #  experiment configuration
     #         --data_augmentation
     #         --data_augmentation_multiplicity 16
