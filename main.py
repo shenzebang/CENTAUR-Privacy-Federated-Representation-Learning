@@ -170,13 +170,18 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
     best_validation_accs_std, best_validation_accs_mean = torch.std_mean(torch.stack(best_validation_accs_run))
     best_test_losses_std, best_test_losses_mean = torch.std_mean(torch.stack(best_test_losses_run))
     best_test_accs_std, best_test_accs_mean = torch.std_mean(torch.stack(best_test_accs_run))
+    a_rule = "=" * 20
+    print(a_rule)
     print(
-        f"[ Performance of Model with the Best Validation Accuracy averaged over {args.n_runs} runs] On dataset {args.dataset}, {args.alg} achieves\t"
+        f"[ Performance of Model with the Best Validation Accuracy averaged over {args.n_runs} runs]"
+        f"Given privacy Budget ({args.epsilon, args.delta}),\t"
+        f"on dataset {args.dataset}, \t {args.alg} achieves\n"
         f"Validation Loss: {best_validation_losses_mean:.2f} ({best_validation_losses_std:.2f}) "
-        f"Validation Acc@1: {best_validation_accs_mean * 100:.2f} ({best_validation_accs_std * 100:.2f}) \t"
-        f"Test loss: {best_test_losses_mean:.2f} ({best_test_losses_std:.2f})"
-        f" Test acc@1: {best_test_accs_mean * 100:.2f} ({best_test_accs_std * 100:.2f})"
+        f"Validation Acc@1: {best_validation_accs_mean * 100:.2f} ({best_validation_accs_std * 100:.2f})\t"
+        f"Test loss: {best_test_losses_mean:.2f} ({best_test_losses_std:.2f}) "
+        f"Test acc@1: {best_test_accs_mean * 100:.2f} ({best_test_accs_std * 100:.2f})"
     )
+    print(a_rule)
 
 
 
