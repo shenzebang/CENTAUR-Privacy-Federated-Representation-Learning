@@ -11,7 +11,7 @@ args=(--alg DP_FedRep
     --epochs 200
     --seed 1
     --num_users 1000
-    --n_runs 5
+    --n_runs 3
     #  DP configuration
     #      --disable-dp
 #     --noise_multiplier 1

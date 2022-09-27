@@ -11,7 +11,7 @@ args=(#  algorithm configuration
         --epochs 200
         --seed 1
         --num_users 500
-        --n_runs 5
+        --n_runs 3
         #  DP configuration
         #      --disable-dp
         --dp_type user-level-DP
