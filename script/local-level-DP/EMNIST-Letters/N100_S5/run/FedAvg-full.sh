@@ -2,9 +2,9 @@ args=(--alg DP_FedAvg_ft
     #  model configuration
     --model mlp
     #  dataset configuration
-    --dataset emnist_d
+    --dataset emnist_l
     --shard_per_user 5
-    --num_classes 10
+    --num_classes 20
     #  experiment configuration
     #         --data_augmentation
     #         --data_augmentation_multiplicity 16
@@ -18,7 +18,6 @@ args=(--alg DP_FedAvg_ft
     --use_ray
     --ray_gpu_fraction .33
     #  test configuration
-    --print_freq 2
     #  train configuration
     --frac_participate 1
     --batch_size 100
@@ -27,7 +26,7 @@ args=(--alg DP_FedAvg_ft
     # algorithm specific configuration
     --lr 1e-2
     --lr-head 1e-2
-    --local_head_ep 15
+    --ft-ep 15
     )
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 python main.py "${args[@]}"

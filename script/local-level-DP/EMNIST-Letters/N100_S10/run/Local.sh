@@ -7,12 +7,15 @@ args=(--alg Local
     #  experiment configuration
 #     --data_augmentation
     --epochs 1
-    --num_users 500
+    --num_users 100
     --shard_per_user 10
     --seed 1
-    --n_runs 5
+    --n_runs 1
     #  DP configuration
     --disable-dp
+    --epsilon 1
+    --delta 1e-5
+    --dp_clip 1
     #  save/load configuration
     #  backend configuration
 #     --gpu 0-1-2-3
@@ -27,4 +30,4 @@ args=(--alg Local
     --momentum 0
     )
 
-CUDA_VISIBLE_DEVICES=0,1,2,3 python main.py "${args[@]}"
+python main.py "${args[@]}"

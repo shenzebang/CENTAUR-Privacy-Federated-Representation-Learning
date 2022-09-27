@@ -200,12 +200,12 @@ class CNNCifar100(nn.Module):
         super(CNNCifar100, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, 5)
         self.pool = nn.MaxPool2d(2, 2)
-        self.drop = nn.Dropout(0.6)
+        # self.drop = nn.Dropout(0.6)
         # Dropout is necessary in CIFAR100 to avoid over-fitting of the head
-        self.conv2 = nn.Conv2d(64, 128, 5)
-        self.fc1 = nn.Linear(128 * 5 * 5, 384)
-        self.fc2 = nn.Linear(384, 192)
-        self.fc3 = nn.Linear(192, args.num_classes)
+        self.conv2 = nn.Conv2d(64, 64, 5)
+        self.fc1 = nn.Linear(64 * 5 * 5, 128)
+        self.fc2 = nn.Linear(128, 32)
+        self.fc3 = nn.Linear(32, args.num_classes)
         self.cls = args.num_classes
 
         self.weight_keys = [['fc1.weight', 'fc1.bias'],
@@ -231,9 +231,9 @@ class CNNCifar100(nn.Module):
 
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 128 * 5 * 5) if is_batch else x.view(128 * 5 * 5)
+        x = x.view(-1, 64 * 5 * 5) if is_batch else x.view(64 * 5 * 5)
         x = F.relu(self.fc1(x))
-        x = self.drop(F.relu(self.fc2(x)))
+        x = F.relu(self.fc2(x))
         if representation: # the last layer (head) is omitted
             return x
         else:
@@ -244,13 +244,13 @@ class CNNCifar100_PPSGD(nn.Module):
         super(CNNCifar100_PPSGD, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, 5)
         self.pool = nn.MaxPool2d(2, 2)
-        self.drop = nn.Dropout(0.6)
+        # self.drop = nn.Dropout(0.6)
         # Dropout is necessary in CIFAR100 to avoid over-fitting of the head
-        self.conv2 = nn.Conv2d(64, 128, 5)
-        self.fc1 = nn.Linear(128 * 5 * 5, 384)
-        self.fc2 = nn.Linear(384, 192)
-        self.fc3 = nn.Linear(192, args.num_classes)
-        self.fc4 = nn.Linear(192, args.num_classes)
+        self.conv2 = nn.Conv2d(64, 64, 5)
+        self.fc1 = nn.Linear(64 * 5 * 5, 128)
+        self.fc2 = nn.Linear(128, 32)
+        self.fc3 = nn.Linear(32, args.num_classes)
+        self.fc4 = nn.Linear(32, args.num_classes)
         self.cls = args.num_classes
 
         self.weight_keys = [['fc1.weight', 'fc1.bias'],
@@ -279,7 +279,7 @@ class CNNCifar100_PPSGD(nn.Module):
         x = self.pool(F.relu(self.conv2(x)))
         x = x.view(-1, 128 * 5 * 5) if is_batch else x.view(128 * 5 * 5)
         x = F.relu(self.fc1(x))
-        x = self.drop(F.relu(self.fc2(x)))
+        x = F.relu(self.fc2(x))
         if representation: # the last layer (head) is omitted
             return x
         else:
