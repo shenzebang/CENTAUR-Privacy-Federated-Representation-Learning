@@ -23,7 +23,7 @@ args=(--alg Local
 #     --verbose
     --lr 1e-2
     --batch_size 100
-    --local_ep 500
+    --local_ep 200
     --momentum 0
     )
 
