@@ -7,7 +7,7 @@ args=(--alg Local
     #  experiment configuration
 #     --data_augmentation
     --epochs 1
-    --num_users 1000
+    --num_users 2000
     --shard_per_user 5
     --seed 1
     --n_runs 1
