@@ -1,31 +1,29 @@
 args=(--alg Local
     #  dataset configuration
-    --dataset cifar100
-    --num_classes 100
+    --dataset emnist_d
+    --num_classes 10
     #  model configuration
-    --model cnn
+    --model mlp
     #  experiment configuration
 #     --data_augmentation
     --epochs 1
-    --num_users 500
+    --num_users 2000
     --shard_per_user 5
     --seed 1
     --n_runs 3
     #  DP configuration
     --disable-dp
-    --epsilon 1
-    --delta 1e-5
-    --dp_clip 1
     #  save/load configuration
     #  backend configuration
+#     --gpu 0-1-2-3
     --use_ray
     --ray_gpu_fraction .25
     #  test configuration
     #  train configuration
 #     --verbose
     --lr 1e-2
-    --batch_size 20
-    --local_ep 100
+    --batch_size 100
+    --local_ep 200
     --momentum 0
     )
 

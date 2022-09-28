@@ -1,32 +1,35 @@
 args=(--alg DP_FedRep
     #  model configuration
-    --model cnn
+    --model mlp
     #  dataset configuration
-    --dataset cifar100
-    --shard_per_user 20
-    --num_classes 100
+    --dataset emnist_d
+    --shard_per_user 5
+    --num_classes 10
     #  experiment configuration
-#     --data_augmentation
-#     --data_augmentation_multiplicity 16
-    --epochs 200
+    #         --data_augmentation
+    #         --data_augmentation_multiplicity 16
+    --epochs 40
     --seed 1
-    --num_users 500
+    --num_users 2000
+    --n_runs 3
     #  DP configuration
-    --disable-dp
+    #      --disable-dp
+    # --noise_multiplier 20
+    --dp_type user-level-DP
     --epsilon 1
     --delta 1e-5
-    --dp_clip 1
+    --dp_clip .25
     #  save/load configuration
     #  backend configuration
-#     --gpu 0-1-2-3
     --use_ray
     --ray_gpu_fraction .25
     #  test configuration
     --print_freq 2
+    --print_diff_norm
     #  train configuration
     --frac_participate 1
     --batch_size 100
-    --local_ep 3
+    --local_ep 2
     # --verbose
     # algorithm specific configuration
     --lr 1e-2

@@ -8,15 +8,16 @@ args=(--alg DP_FedAvg_ft
     #  experiment configuration
     #         --data_augmentation
     #         --data_augmentation_multiplicity 16
-    --epochs 400
+    --epochs 40
     --seed 1
     --num_users 1000
+    --n_runs 3
     #  DP configuration
     #      --disable-dp
     --dp_type user-level-DP
     --epsilon 1
     --delta 1e-5
-    --dp_clip .1
+    --dp_clip .25
     #  save/load configuration
     #  backend configuration
     --use_ray
@@ -27,7 +28,7 @@ args=(--alg DP_FedAvg_ft
     #  train configuration
     --frac_participate 1
     --batch_size 100
-    --local_ep 1
+    --local_ep 2
     # --verbose
     # algorithm specific configuration
     --lr 1e-2

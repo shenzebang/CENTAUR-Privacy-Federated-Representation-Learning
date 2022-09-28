@@ -8,20 +8,21 @@ args=(--alg DP_FedRep
     #  experiment configuration
     #         --data_augmentation
     #         --data_augmentation_multiplicity 16
-    --epochs 20
+    --epochs 40
     --seed 1
     --num_users 1000
+    --n_runs 3
     #  DP configuration
     #      --disable-dp
-    --noise_multiplier 1
+    # --noise_multiplier 20
     --dp_type user-level-DP
     --epsilon 1
     --delta 1e-5
-    --dp_clip .5
+    --dp_clip .25
     #  save/load configuration
     #  backend configuration
     --use_ray
-    --ray_gpu_fraction .33
+    --ray_gpu_fraction .25
     #  test configuration
     --print_freq 2
     --print_diff_norm

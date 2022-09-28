@@ -1,3 +1,5 @@
+for epsilon in .125 .25 .5 2 4
+do
 args=(--alg DP_FedRep
     #  model configuration
     --model mlp
@@ -8,20 +10,26 @@ args=(--alg DP_FedRep
     #  experiment configuration
     #         --data_augmentation
     #         --data_augmentation_multiplicity 16
-    --epochs 600
+    --epochs 40
     --seed 1
-    --num_users 1000
+    --num_users 2000
+    --n_runs 3
     #  DP configuration
-    --disable-dp
+    #      --disable-dp
+    # --noise_multiplier 20
+    --dp_type user-level-DP
+    --epsilon $epsilon
+    --delta 1e-5
+    --dp_clip .25
     #  save/load configuration
     #  backend configuration
     --use_ray
-    --ray_gpu_fraction .33
+    --ray_gpu_fraction .25
     #  test configuration
-    --print_freq 2
+    --print_freq 10
     --print_diff_norm
     #  train configuration
-    --frac_participate .1
+    --frac_participate 1
     --batch_size 100
     --local_ep 2
     # --verbose
@@ -32,3 +40,4 @@ args=(--alg DP_FedRep
     )
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 python main.py "${args[@]}"
+done

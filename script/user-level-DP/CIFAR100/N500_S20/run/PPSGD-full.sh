@@ -8,16 +8,16 @@ args=(#  algorithm configuration
         --num_classes 100
         #  experiment configuration
         #      --data_augmentation
-        --epochs 200
+        --epochs 100
         --seed 1
         --num_users 500
-        --n_runs 1
+        --n_runs 3
         #  DP configuration
         #      --disable-dp
         --dp_type user-level-DP
         --epsilon 1
         --delta 1e-5
-        --dp_clip .01
+        --dp_clip .02
         #  save/load configuration
         #  backend configuration
         --use_ray
@@ -32,6 +32,7 @@ args=(#  algorithm configuration
         --lr 1e-2
         --lr-head 1e-1
         --local_head_ep 1
+        --global_lr 5
      )
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 python main.py "${args[@]}"

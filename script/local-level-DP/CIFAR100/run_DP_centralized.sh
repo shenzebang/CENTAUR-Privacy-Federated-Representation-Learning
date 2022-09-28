@@ -25,7 +25,7 @@ args=(--alg Local
     #  test configuration
     #  train configuration
 #     --verbose
-    --lr 1e-1
+    --lr 1e-2
     --batch_size 1000
     --local_ep 500
     --momentum 0
