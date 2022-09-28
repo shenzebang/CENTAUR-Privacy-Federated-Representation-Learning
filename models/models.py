@@ -277,7 +277,7 @@ class CNNCifar100_PPSGD(nn.Module):
 
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 128 * 5 * 5) if is_batch else x.view(128 * 5 * 5)
+        x = x.view(-1, 64 * 5 * 5) if is_batch else x.view(64 * 5 * 5)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         if representation: # the last layer (head) is omitted
