@@ -14,9 +14,9 @@ For CIFAR10 and CIFAR100, the parameter $\delta$ of DP is fixed as $10^{-5}$.
 
 ## User Level DP
 
-|Algorithm|  Local_only | DP-FedRep |  DP-FedAvg | PMTL | PPSGD |
-|---------|-------------|-----------|------------|------|-------|
-| N500S2  |79.36 (0.49)|78.54 (0.54)|72.12 (0.77)|      |74.46, ...|
-| N1000S2 | 
-| N500S5  |
-| N1000S5 |
+|Algorithm|  Local_only | DP-FedRep  |  DP-FedAvg |    PMTL    |    PPSGD    |
+|---------|-------------|------------|------------|------------|-------------|
+| N500S2  |79.71 (0.44) |78.54 (0.54)|72.12 (0.77)|70.46 (0.51)|74.59 (0.38) |
+| N500S5  |50.03 (1.59) |52.55 (0.69)|  jiayuan   |42.06 (0.94)| 47.94 (1.87) |
+| N1000S2 | 74.06 (0.45)|75.75 (0.20)|  reza1     |    yao1    |jiayuan0|
+| N1000S5 | 44.60 (1.30)| reza0 (to finish)   | jiayuan |   jiayuan0     |  aadyaa0
