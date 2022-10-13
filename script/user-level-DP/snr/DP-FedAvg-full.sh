@@ -1,4 +1,4 @@
-args=(--alg DP_FedRep
+args=(--alg DP_FedAvg_ft
     #  model configuration
     --model mlp
     #  dataset configuration
@@ -8,15 +8,14 @@ args=(--alg DP_FedRep
     #  experiment configuration
     #         --data_augmentation
     #         --data_augmentation_multiplicity 16
-    --epochs 1
+    --epochs 40
     --seed 1
     --num_users 2000
     --n_runs 1
     #  DP configuration
     #      --disable-dp
-    # --noise_multiplier 20
     --dp_type user-level-DP
-    --epsilon 1
+    --epsilon .5
     --delta 1e-5
     --dp_clip .25
     #  save/load configuration

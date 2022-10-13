@@ -210,6 +210,7 @@ class Server:
                  global_keys: List[str],
                  local_keys: List[str],
                  fine_tune_keys: List[str],
+                 representation_keys: List[str],
                  clients: List[Client],
                  remote_workers: List[Worker],
                  logger: Logger,
@@ -219,6 +220,7 @@ class Server:
         self.global_keys = global_keys
         self.local_keys = local_keys
         self.fine_tune_keys = fine_tune_keys
+        self.representation_keys = representation_keys
         self.clients = clients
         self.remote_workers = remote_workers
         self.logger = logger
@@ -264,9 +266,9 @@ class Server:
 
         noise_level = self.args.dp_clip * self.noise_multiplier
 
-        sd = server_update_with_clip(sd, sds_global_diff, self.global_keys, self.clip_threshold,
+        sd, snr = server_update_with_clip(sd, sds_global_diff, self.global_keys, self.representation_keys, self.clip_threshold,
                                      self.args.global_lr, noise_level, self.args.aggr, self.args.print_diff_norm)
-
+        self.logger.log_snr(snr)
         self.model.load_state_dict(sd)
 
     def local_update(self, clients: List[Client], epoch: int):

@@ -47,9 +47,9 @@ class MLP_PPSGD(nn.Module):
         self.layer_input = nn.Linear(dim_in, 256)
         self.relu = nn.ReLU()
         self.layer_hidden1 = nn.Linear(256, 128)
-        self.layer_hidden2 = nn.Linear(128, 32)
-        self.layer_out = nn.Linear(32, args.num_classes)
-        self.layer_out2 = nn.Linear(32, args.num_classes)
+        self.layer_hidden2 = nn.Linear(128, 16)
+        self.layer_out = nn.Linear(16, args.num_classes)
+        self.layer_out2 = nn.Linear(16, args.num_classes)
         self.cls = args.num_classes
 
         self.weight_keys = [['layer_input.weight', 'layer_input.bias'],

@@ -68,6 +68,8 @@ def get_keys(args, global_model):
         if 'cifar' in args.dataset:
             if args.model == 'cnn':
                 global_keys = [global_model.weight_keys[i] for i in [0, 1, 2, 4, 5]]
+                representation_keys = [global_model.weight_keys[i] for i in [0, 1, 4, 5]]
+                representation_keys = list(itertools.chain.from_iterable(representation_keys))
                 global_keys = list(itertools.chain.from_iterable(global_keys))
                 all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
                 local_keys = [key for key in all_keys if key not in global_keys]
@@ -76,6 +78,8 @@ def get_keys(args, global_model):
         elif 'mnist' in args.dataset:
             if args.model == 'mlp':
                 global_keys = [global_model.weight_keys[i] for i in [0, 1, 2, 3]]
+                representation_keys = [global_model.weight_keys[i] for i in [0, 1, 2]]
+                representation_keys = list(itertools.chain.from_iterable(representation_keys))
                 global_keys = list(itertools.chain.from_iterable(global_keys))
                 all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
                 local_keys = [key for key in all_keys if key not in global_keys]
@@ -85,7 +89,7 @@ def get_keys(args, global_model):
             raise NotImplementedError
 
         # there is no fine_tune_key for PPSGD
-        return global_keys, local_keys, []
+        return global_keys, local_keys, [], representation_keys
 
     if args.alg == 'DP_FedRep':
         if 'cifar' in args.dataset:
@@ -94,6 +98,8 @@ def get_keys(args, global_model):
                 global_keys = list(itertools.chain.from_iterable(global_keys))
                 all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
                 local_keys = [key for key in all_keys if key not in global_keys]
+                representation_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
+                representation_keys = list(itertools.chain.from_iterable(representation_keys))
             else:
                 raise NotImplementedError
         elif 'mnist' in args.dataset:
@@ -102,13 +108,15 @@ def get_keys(args, global_model):
                 global_keys = list(itertools.chain.from_iterable(global_keys))
                 all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
                 local_keys = [key for key in all_keys if key not in global_keys]
+                representation_keys = [global_model.weight_keys[i] for i in [0, 1, 2]]
+                representation_keys = list(itertools.chain.from_iterable(representation_keys))
             else:
                 raise NotImplementedError
         else:
             raise NotImplementedError
 
         # there is no fine_tune_key for DP_FedRep
-        return global_keys, local_keys, []
+        return global_keys, local_keys, [], representation_keys
 
 
     if args.alg == 'DP_FedAvg_ft' or args.alg == 'PMTL':
@@ -132,24 +140,28 @@ def get_keys(args, global_model):
             raise NotImplementedError
 
         # there is no local_keys for DP_FedAvg_ft
-        return all_keys, [], head_keys
+        return all_keys, [], head_keys, representation_keys
 
     if args.alg == 'Local':
         if 'cifar' in args.dataset:
             if args.model == 'cnn':
                 all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+                representation_keys = [global_model.weight_keys[i] for i in [0, 1, 3, 4]]
+                representation_keys = list(itertools.chain.from_iterable(representation_keys))
             else:
                 raise NotImplementedError
         elif 'mnist' in args.dataset:
             if args.model == 'mlp':
                 all_keys = list(itertools.chain.from_iterable(global_model.weight_keys))
+                representation_keys = [global_model.weight_keys[i] for i in [0, 1, 2]]
+                representation_keys = list(itertools.chain.from_iterable(representation_keys))
             else:
                 raise NotImplementedError
         else:
             raise NotImplementedError
 
         # there is no global_keys or fine_tune_keys for local training
-        return [], all_keys, []
+        return [], all_keys, [], representation_keys
 
 
     # global_keys = []
@@ -302,7 +314,7 @@ AGGR_OPS = {
 }
 
 
-def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict], keys: List[str],
+def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict], keys: List[str], representation_keys: List[str],
                             clip_threshold=-1, global_lr=1, noise_level=0, aggr='mean', print_diff_norm=False):
     '''
         Only the key in "keys" will be updated. If "keys" is empty, all keys will be updated.
@@ -320,6 +332,7 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
             for key in keys:
                 sds_global_diff_key = [sd_global_diff[key] for sd_global_diff in sds_global_diff]
                 sd[key] = sd[key] + global_lr * aggr_op(torch.stack(sds_global_diff_key, dim=0), dim=0)
+            snr = -1
         else: # The server performs clip.
             norm_diff_clients = [ torch.ones(1) ] * n_clients
             # 1. Calculate the norm of differences
@@ -343,7 +356,19 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
                 sds_global_diff_key = [sd_global_diff[key] for sd_global_diff in sds_global_diff]
                 sd[key] = sd[key] + global_lr * (torch.mean(torch.stack(sds_global_diff_key, dim=0), dim=0) + white_noise / n_clients)
 
-    return sd
+            # 4. compute the signal noise ratio
+            total_numel = 0
+            signal = torch.zeros(1)
+            for key in representation_keys:
+                sds_global_diff_key = torch.stack([sd_global_diff[key] for sd_global_diff in sds_global_diff])
+                total_numel += torch.numel(sds_global_diff_key)
+                signal = signal + torch.sum(torch.abs(sds_global_diff_key))
+
+            signal_per_dim = signal / total_numel
+
+            snr = signal_per_dim / noise_level * n_clients
+
+    return sd, snr.numpy()
 
 class Results:
     def __init__(self):
@@ -394,6 +419,8 @@ class Logger:
         
         self.current_epoch = 0
 
+        self.snrs = []
+
     def log(self, stats_dict_all, epoch):
         if epoch == self.current_epoch:
             self.train_losses_current.append(stats_dict_all["train loss"])
@@ -422,6 +449,8 @@ class Logger:
             # Store the input stats
             self.log(stats_dict_all, epoch)
             
+    def log_snr(self, snr: np.ndarray):
+        self.snrs.append(snr)
 
     def _reset(self):
         self.train_losses_current = []
@@ -444,3 +473,12 @@ class Logger:
 
         return self.train_losses_history[epoch], self.train_accs_history[epoch], self.validation_losses_history[epoch],\
                     self.validation_accs_history[epoch], self.test_losses_history[epoch], self.test_accs_history[epoch]
+
+    def report_snr(self):
+        return np.concatenate(self.snrs)
+
+    def save_snr(self, save_directory, save_name):
+        snrs = self.report_snr()
+        file_name = save_directory + save_name
+        with open(file_name, 'wb') as f:
+            np.save(f, snrs)

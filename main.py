@@ -50,7 +50,7 @@ def single_run(args, is_ray_tune = False, checkpoint_dir=None):
     restore_from_checkpoint(args, global_model, checkpoint_dir)
 
     # Init representation keys
-    global_keys, local_keys, fine_tune_keys = get_keys(args, global_model)
+    global_keys, local_keys, fine_tune_keys, representation_keys = get_keys(args, global_model)
     print(
         f"[ The global_keys keys are : ]",
         f"{global_keys}"
@@ -76,7 +76,7 @@ def single_run(args, is_ray_tune = False, checkpoint_dir=None):
     # Init Server
     remote_workers = create_remote_workers(args, device)  # create remote workers with ray backend
 
-    server = Server(args, global_model, global_keys, local_keys, fine_tune_keys, clients, remote_workers, logger,
+    server = Server(args, global_model, global_keys, local_keys, fine_tune_keys, representation_keys, clients, remote_workers, logger,
                     device)
 
     train_losses = []
@@ -160,6 +160,10 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
         plot_directory = f"./plot/fairness_gap"
         os.makedirs(plot_directory, exist_ok=True)
         plot_stats_in_logger(run, logger, index, plot_directory)
+        snr_directory = f"./log/snrs"
+        snr_name = f"/snr_{args.alg}_{args.dataset}.np"
+        os.makedirs(snr_directory, exist_ok=True)
+        logger.save_snr(snr_directory, snr_name)
 
         best_validation_losses_run.append(validation_losses[index])
         best_validation_accs_run.append(validation_accs[index])
