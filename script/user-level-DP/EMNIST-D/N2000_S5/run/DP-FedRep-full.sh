@@ -8,10 +8,10 @@ args=(--alg DP_FedRep
     #  experiment configuration
     #         --data_augmentation
     #         --data_augmentation_multiplicity 16
-    --epochs 1
+    --epochs 40
     --seed 1
     --num_users 2000
-    --n_runs 1
+    --n_runs 3
     #  DP configuration
     #      --disable-dp
     # --noise_multiplier 20
