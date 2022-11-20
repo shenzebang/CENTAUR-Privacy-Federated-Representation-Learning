@@ -368,7 +368,7 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
 
             snr = signal_per_dim / noise_level * n_clients
 
-    return sd, snr.numpy(), norm_diff_mean.numpy(), norm_diff_std.numpy()
+    return sd, snr.numpy(), norm_diff_mean[None].numpy(), norm_diff_std[None].numpy()
 
 class Results:
     def __init__(self):
