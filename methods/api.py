@@ -270,6 +270,7 @@ class Server:
                                                                          self.representation_keys, self.clip_threshold,
                                      self.args.global_lr, noise_level, self.args.aggr, self.args.print_diff_norm)
         self.logger.log_snr(snr)
+        self.logger.log_gradient_norm(norm_diff_mean, norm_diff_std)
         self.model.load_state_dict(sd)
 
     def local_update(self, clients: List[Client], epoch: int):
