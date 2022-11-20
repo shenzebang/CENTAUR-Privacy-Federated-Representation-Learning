@@ -368,7 +368,7 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
 
             snr = signal_per_dim / noise_level * n_clients
 
-    return sd, snr.numpy()
+    return sd, snr.numpy(), norm_diff_mean, norm_diff_std
 
 class Results:
     def __init__(self):
@@ -420,6 +420,8 @@ class Logger:
         self.current_epoch = 0
 
         self.snrs = []
+        self.gradient_norm_means = []
+        self.gradient_norm_stds = []
 
     def log(self, stats_dict_all, epoch):
         if epoch == self.current_epoch:
@@ -452,6 +454,12 @@ class Logger:
     def log_snr(self, snr: np.ndarray):
         self.snrs.append(snr)
 
+
+    def log_gradient_norm(self, norm_mean: np.ndarray, norm_std: np.ndarray):
+        self.gradient_norm_means.append(norm_mean)
+        self.gradient_norm_stds.append(norm_std)
+
+
     def _reset(self):
         self.train_losses_current = []
         self.train_accs_current = []
@@ -477,8 +485,17 @@ class Logger:
     def report_snr(self):
         return np.concatenate(self.snrs)
 
+    def report_gradient_norm(self):
+        return np.concatenate(self.gradient_norm_means), np.concatenate(self.gradient_norm_stds)
+
     def save_snr(self, save_directory, save_name):
         snrs = self.report_snr()
         file_name = save_directory + save_name
         with open(file_name, 'wb') as f:
             np.save(f, snrs)
+
+    def save_gradient_norm(self, save_directory, save_name):
+        g_mean, g_std = self.report_gradient_norm()
+        file_name = save_directory + save_name
+        with open(file_name, 'wb') as f:
+            np.save(f, np.stack([g_mean, g_std]))
