@@ -16,7 +16,7 @@ args=(--alg DP_FedRep
     #      --disable-dp
     # --noise_multiplier 20
     --dp_type user-level-DP
-    --epsilon 1
+    --epsilon 10
     --delta 1e-5
     --dp_clip .25
     #  save/load configuration

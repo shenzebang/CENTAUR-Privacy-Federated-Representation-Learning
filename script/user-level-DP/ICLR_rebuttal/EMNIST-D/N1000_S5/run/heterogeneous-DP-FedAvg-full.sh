@@ -15,7 +15,7 @@ args=(--alg DP_FedAvg_ft
     #  DP configuration
     #      --disable-dp
     --dp_type user-level-DP
-    --epsilon 1
+    --epsilon 10
     --delta 1e-5
     --dp_clip .25
     #  save/load configuration
