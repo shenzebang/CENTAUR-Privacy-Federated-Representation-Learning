@@ -14,8 +14,8 @@ The CIFAR10, CIFAR100 and MNIST datasets are downloaded automatically by the `to
 
 ## Usage
 
-We provide scripts that has been tested to produce the results stated in our paper (TO BE DONE!).
-Please find them under the foler `script`.
+We provide scripts that has been tested to produce the results stated in our paper.
+Please find them under the foler `script/user-level-DP`.
 
 In the following, we explain several important flags.
 
@@ -61,68 +61,4 @@ Currently, we use [ray](https://github.com/ray-project/ray) to parallel the comp
 - The flag `args.ray_gpu_fraction` controls the number of ray workers a single GPU can host. For example when there are 4 gpus available and `args.ray_gpu_fraction` is set to 0.3, then there will be in total 12 ray workers ($floor(1/0.3) = 3$, and $3 * 4 = 12$).
 - **Caveat:** Right now, `ray` is not compatible with the partial participation setting, i.e. `args.frac_participate` is less than 1. Hence, when `args.frac_participate` is less than 1, `args.use_ray` will be automatically set to false to disable the ray backend.
 
-## Summary of results
 
-We summarize the experiment results as follows.
-
-In the following tables, the number of users $N$ is fixed as 100. $S$ (short for shard) stands for the maximum number classes a client can hold.
-For CIFAR10 and CIFAR100, the parameter $\delta$ of DP is fixed as $10^{-5}$.
-
-
-| Datasets     | CIFAR10 ($S=2$) |
-| -------------- | ----------------- |
-| DP-FedRep    | 0               |
-| DP-FedAvg-ft | 0               |
-
-
-| Datasets                    | CIFAR100 ($S=20$) |
-| ----------------------------- | ------------------- |
-| DP-FedRep ($\epsilon=1$)    | 30.76%            |
-| DP-FedAvg-ft ($\epsilon=1$) | ZJU22             |
-| FedRep                      | 52.56%            |
-| FedAvg-ft                   | 62.61%            |
-| Local-only                  | 0                 |
-
-## TODOs
-
-- [ ]  The DeepMind type data augmentation does not work as well as expected. Find out why. A possible reason is that the current NN model is not overly "over-parameterized".
-- [ ]  Test MNIST, EMNIST, FashionMNIST
-- [ ]  Use Torch.multiprocessing to accelerate
-- [ ]  Test User-level DP
-- [ ]  Test PPSGD
-- [ ]  (optional) Add language task
-- [ ]  Survey the literature to look for baselines.
-- [ ]  Report the testing accuracy that corresponds to the best validation accuracy.
-
-## Hyper-parameter Tuning
-
-### Search Space
-
-
-|              | CIFAR100 ($S=20$)                   |
-| -------------- | ------------------------------------- |
-| "lr"         | tune.grid_search([.01, .05, .1, ]), |
-| "C"          | tune.grid_search([1]),              |
-| "epochs"     | tune.grid_search([400]),            |
-| "local_ep"   | tune.grid_search([1, 2, 4, 8]),     |
-| "batch size" | tune.grid_search([50, 100, 500])    |
-
-
-|              | CIFAR100 ($S=5$)                    |
-| -------------- | ------------------------------------- |
-| "lr"         | tune.grid_search([.01, .05, .1, ]), |
-| "C"          | tune.grid_search([1]),              |
-| "epochs"     | tune.grid_search([400]),            |
-| "local_ep"   | tune.grid_search([1, 2, 4, 8]),     |
-| "batch size" | tune.grid_search([50, 100, 500])    |
-
-### Best Hyper-parameters
-
-
-| Datasets                    | CIFAR100 ($S=20$)                                                       |
-| ----------------------------- | ------------------------------------------------------------------------- |
-| FedAvg-ft                   | {'lr': 0.10, 'C': 1, 'epochs': 400, 'local_ep': 1, 'batch size': 100}   |
-| FedRep                      | {'lr': 0.05, 'C': 1, 'epochs': 400, 'local_ep': 1, 'batch size': 50}    |
-| DP-FedAvg-ft ($\epsilon=1$) | {'lr': 0.01, 'C': 1.0, 'epochs': 400, 'local_ep': 2, 'batch size': 100} |
-| DP-FedRep ($\epsilon=1$)    | {'lr': 0.10, 'C': 0.1, 'epochs': 400, 'local_ep': 4, 'batch size': 500} |
-| DP-FedRep ($\epsilon=1$)    | {'lr': 0.01, 'C': 0.5, 'epochs': 200, 'local_ep': 2, 'batch size': 100} |
