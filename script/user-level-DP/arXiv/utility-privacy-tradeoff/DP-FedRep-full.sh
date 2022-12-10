@@ -1,4 +1,5 @@
-for epsilon in .125 .25 .5 2 4
+# for epsilon in .125 .25 .5 2 4
+for epsilon in 1 2 4
 do
 args=(--alg DP_FedRep
     #  model configuration
