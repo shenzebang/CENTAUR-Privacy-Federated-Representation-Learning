@@ -1,5 +1,5 @@
 # for epsilon in .125 .25 .5 2 4
-for epsilon in 1 2 4
+for epsilon in 2 4
 do
 args=(--alg PMTL
     #  model configuration
@@ -11,7 +11,7 @@ args=(--alg PMTL
     #  experiment configuration
     #         --data_augmentation
     #         --data_augmentation_multiplicity 16
-    --epochs 100
+    --epochs $((100 * epsilon))
     --seed 1
     --num_users 2000
     --n_runs 3
@@ -20,7 +20,7 @@ args=(--alg PMTL
     --dp_type user-level-DP
     --epsilon $epsilon
     --delta 1e-5
-    --dp_clip .25
+    --dp_clip .2
     #  save/load configuration
     #  backend configuration
     --use_ray
