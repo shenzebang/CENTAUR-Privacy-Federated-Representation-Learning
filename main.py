@@ -1,3 +1,4 @@
+import os
 import warnings
 
 from torchsummary import summary
@@ -88,6 +89,7 @@ def single_run(args, is_ray_tune = False, checkpoint_dir=None):
     # Run experiment
     for epoch in range(args.epochs):
         train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = server.step(epoch)
+        # Decide whether to save the checkpoint or not
         if is_ray_tune:
             with tune.checkpoint_dir(step=epoch) as checkpoint_dir:
                 path = os.path.join(checkpoint_dir, "checkpoint")
@@ -101,6 +103,11 @@ def single_run(args, is_ray_tune = False, checkpoint_dir=None):
                 test_loss=test_loss.item(),
                 test_acc=test_acc.item()
             )
+        elif args.save_checkpoint and (epoch % args.save_freq == args.save_freq-1 or epoch >= args.epochs - 5):
+            checkpoint_dir_epoch = f"checkpoints/{args.dataset}_{args.alg}_{args.num_users}/{epoch}/"
+            os.makedirs(checkpoint_dir_epoch, exist_ok=True)
+            checkpoint_dir_epoch = os.path.join(checkpoint_dir_epoch, "checkpoint")
+            torch.save(server.model.state_dict(), checkpoint_dir_epoch)
 
         train_losses.append(train_loss)
         train_accs.append(train_acc)

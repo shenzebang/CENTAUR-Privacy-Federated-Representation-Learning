@@ -6,6 +6,10 @@ import argparse
 
 def args_parser():
     parser = argparse.ArgumentParser()
+    # checkpoint arguments
+    parser.add_argument('--save_checkpoint', action="store_true")
+    parser.add_argument('--save_freq', type=int, default=10, help="frequency of saving checkpoints")
+
     # federated arguments
 
     parser.add_argument('--repeat_class', type=bool, default=False, help='whether allow a user to have shards from the same class')
