@@ -17,7 +17,7 @@ args=(#  algorithm configuration
         --dp_type user-level-DP
         --epsilon 1
         --delta 1e-5
-        --dp_clip .01
+        --dp_clip .03
         #  save/load configuration
         #  backend configuration
         --use_ray

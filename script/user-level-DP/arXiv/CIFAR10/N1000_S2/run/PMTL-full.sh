@@ -8,7 +8,7 @@ args=(#  algorithm configuration
         --num_classes 10
         #  experiment configuration
         #      --data_augmentation
-        --epochs 200
+        --epochs 100
         --seed 1
         --num_users 1000
         --n_runs 3
@@ -17,7 +17,7 @@ args=(#  algorithm configuration
         --dp_type user-level-DP
         --epsilon 1
         --delta 1e-5
-        --dp_clip .01
+        --dp_clip .2
         #  save/load configuration
         #  backend configuration
         --use_ray
