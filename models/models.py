@@ -110,7 +110,7 @@ class CNNCifar10(nn.Module):
         x = x.view(-1, 64 * 5 * 5)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-
+        x = self.drop(x)
         if representation: # the last layer (head) is omitted
             return x
         else:
@@ -149,6 +149,7 @@ class CNNCifar10_PPSGD(nn.Module):
         x = x.view(-1, 64 * 5 * 5)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+        x = self.drop(x)
 
         if representation: # the last layer (head) is omitted
             return x
