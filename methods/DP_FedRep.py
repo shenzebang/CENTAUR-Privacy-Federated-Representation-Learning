@@ -2,6 +2,7 @@ import copy
 import gc
 import warnings
 
+import torch
 from opacus.utils.batch_memory_manager import wrap_data_loader
 from torch import optim
 
@@ -59,6 +60,17 @@ class ServerDPFedRep(Server):
                         sd[key] = sd_local[key]
                     client.model.load_state_dict(sd)
                     if client.idx == 0: client.PE = PE
+
+            head_norms = []
+            for client in clients:
+                head_norm = 0
+                sd_client = client.model.state_dict()
+                for key in client.local_keys:
+                    head_norm += torch.norm(sd_client[key]) ** 2
+                head_norms.append(torch.sqrt(head_norm))
+            head_std, head_mean = torch.std_mean(torch.stack(head_norms))
+            print(f"head norm is {head_mean}({head_std})")
+
             # 3. Server aggregate the local updates
             self.aggregate(results_dict_sub_step["sds_global_diff"])
             results_mega_step.add(results_dict_sub_step)
