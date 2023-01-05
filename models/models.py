@@ -121,7 +121,7 @@ class CNNCifar10_PPSGD(nn.Module):
         super(CNNCifar10_PPSGD, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, 5)
         self.pool = nn.MaxPool2d(2, 2)
-        self.drop = nn.Dropout(0.6)
+        self.drop = nn.Dropout(0.2)
         self.conv2 = nn.Conv2d(64, 64, 5)
         self.fc1 = nn.Linear(64 * 5 * 5, 384)
         self.fc2 = nn.Linear(384, 192)
