@@ -8,7 +8,7 @@ args=(--alg DP_FedRep
     #  experiment configuration
 #     --data_augmentation
 #     --data_augmentation_multiplicity 16
-    --epochs 100
+    --epochs 150
     --seed 1
     --num_users 1000
     --n_runs 3
@@ -32,7 +32,7 @@ args=(--alg DP_FedRep
     --local_ep 1
     # --verbose
     # algorithm specific configuration
-    --weight-decay 1e-4
+    --weight-decay 1e-3
     --lr 1e-2
     --lr-head 1e-2
     --local_head_ep 15
