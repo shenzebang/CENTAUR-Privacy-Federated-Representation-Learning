@@ -32,7 +32,7 @@ args=(--alg DP_FedRep
     --local_ep 1
     # --verbose
     # algorithm specific configuration
-    --weight-decay 1e-3
+    --weight-decay 1e-4
     --lr 1e-2
     --lr-head 1e-2
     --local_head_ep 15

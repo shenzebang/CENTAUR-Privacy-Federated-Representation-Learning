@@ -87,8 +87,8 @@ class CNNCifar10(nn.Module):
         self.drop = nn.Dropout(0.2)
         self.conv2 = nn.Conv2d(64, 64, 5)
         self.fc1 = nn.Linear(64 * 5 * 5, 384)
-        self.fc2 = nn.Linear(384, 64)
-        self.fc3 = nn.Linear(64, args.num_classes)
+        self.fc2 = nn.Linear(384, 32)
+        self.fc3 = nn.Linear(32, args.num_classes)
         self.cls = args.num_classes
 
         self.weight_keys = [['fc1.weight', 'fc1.bias'],
@@ -124,9 +124,9 @@ class CNNCifar10_PPSGD(nn.Module):
         self.drop = nn.Dropout(0.2)
         self.conv2 = nn.Conv2d(64, 64, 5)
         self.fc1 = nn.Linear(64 * 5 * 5, 384)
-        self.fc2 = nn.Linear(384, 64)
-        self.fc3 = nn.Linear(64, args.num_classes)
-        self.fc4 = nn.Linear(64, args.num_classes)
+        self.fc2 = nn.Linear(384, 32)
+        self.fc3 = nn.Linear(32, args.num_classes)
+        self.fc4 = nn.Linear(32, args.num_classes)
         self.cls = args.num_classes
 
         self.weight_keys = [['fc1.weight', 'fc1.bias'],
