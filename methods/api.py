@@ -122,6 +122,7 @@ class Client:
                               weight_decay=self.args.weight_decay
                               )
 
+        self.train_dataloader.enable_augmentation()
         losses = []
         top1_acc = []
         ft_dataloader = prepare_ft_dataloader(self.args, self.device, model, self.train_dataloader.dataset.d_split)
@@ -142,6 +143,7 @@ class Client:
 
         del ft_dataloader
 
+        self.train_dataloader.disable_augmentation()
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
     def _eval(self, model: nn.Module, dataloader: DataLoader):

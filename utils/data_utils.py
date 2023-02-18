@@ -87,7 +87,7 @@ class DatasetMultiplicity(Dataset):
         self.d_split = d_split
         self.transform = transform
         self.multiplicity = multiplicity
-        self._disable_multiplicity = False
+        self._enable_augmentation = False
 
     def __len__(self):
         return len(self.d_split)
@@ -96,21 +96,21 @@ class DatasetMultiplicity(Dataset):
         # assume that the original dataset (CIFAR10/CIFAR100/MNIST) performs no transform!
         img, target = self.d_split[item]
 
-        if not self._disable_multiplicity and self.transform is not None and self.multiplicity > 1:
-            # create multiple images from a single raw image with data augmentation
-            imgs = torch.stack([self.transform(img) for _ in range(self.multiplicity)], dim=0)
-            targets = torch.tensor(target).repeat(self.multiplicity)
-            return imgs, targets
-        else:
-            if self.transform is not None:
-                img, target = self.transform(img), torch.tensor(target)
-            return img, target
+        if self._enable_augmentation:
+            if self.transform is not None and self.multiplicity > 1:
+                # create multiple images from a single raw image with data augmentation
+                img = torch.stack([self.transform(img) for _ in range(self.multiplicity)], dim=0)
+                target = torch.tensor(target).repeat(self.multiplicity)
+            else:
+                if self.transform is not None:
+                    img, target = self.transform(img), torch.tensor(target)
 
-    def disable_multiplicity(self):
-        self._disable_multiplicity = True
+        return img, target
+    def disable_augmentation(self):
+        self._enable_augmentation = False
 
-    def enable_multiplicity(self):
-        self._disable_multiplicity = False
+    def enable_augmentation(self):
+        self._enable_augmentation = True
 
 def prepare_dataloaders(args):
     #   For now, only CIFAR10/CIFAR100 are implemented.
