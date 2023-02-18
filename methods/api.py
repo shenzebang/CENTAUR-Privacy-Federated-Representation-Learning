@@ -122,14 +122,16 @@ class Client:
                               weight_decay=self.args.weight_decay
                               )
 
-        self.train_dataloader.enable_augmentation()
+        self.train_dataloader.dataset.enable_augmentation()
         losses = []
         top1_acc = []
-        ft_dataloader = prepare_ft_dataloader(self.args, self.device, model, self.train_dataloader.dataset.d_split)
+        # ft_dataloader = prepare_ft_dataloader(self.args, self.device, model, self.train_dataloader.dataset.d_split)
+        ft_dataloader = self.train_dataloader
         for head_epoch in range(self.args.local_head_ep):
             for _batch_idx, (data, target) in enumerate(ft_dataloader):
                 data, target = data.to(self.device), target.to(self.device)
-                output = model(data, head=True)
+                # output = model(data, head=True)
+                output = model(data)
                 loss = self.criterion(output, target)
                 loss.backward()
                 optimizer.step()
@@ -141,9 +143,9 @@ class Client:
                 acc = accuracy(preds, labels)
                 top1_acc.append(acc)
 
-        del ft_dataloader
+        # del ft_dataloader
 
-        self.train_dataloader.disable_augmentation()
+        self.train_dataloader.dataset.disable_augmentation()
         return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
 
     def _eval(self, model: nn.Module, dataloader: DataLoader):
