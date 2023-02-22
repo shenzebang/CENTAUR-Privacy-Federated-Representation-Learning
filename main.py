@@ -1,6 +1,7 @@
 import os
 import warnings
 
+import numpy as np
 from torchsummary import summary
 
 from utils.common_utils import *
@@ -80,44 +81,49 @@ def single_run(args, is_ray_tune = False, checkpoint_dir=None):
     server = Server(args, global_model, global_keys, local_keys, fine_tune_keys, representation_keys, clients, remote_workers, logger,
                     device)
 
-    train_losses = []
-    train_accs = []
-    validation_losses = []
-    validation_accs = []
-    test_losses = []
-    test_accs = []
+    # train_losses = []
+    # train_accs = []
+    # validation_losses = []
+    # validation_accs = []
+    # test_losses = []
+    # test_accs = []
+    statistics = {}
+    for key in STATISTICS:
+        statistics[key] = []
     # Run experiment
     for epoch in range(args.epochs):
-        train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = server.step(epoch)
+        statistics_epoch = server.step(epoch)
         # Decide whether to save the checkpoint or not
-        if is_ray_tune:
-            with tune.checkpoint_dir(step=epoch) as checkpoint_dir:
-                path = os.path.join(checkpoint_dir, "checkpoint")
-                torch.save(server.model.state_dict(), path)
-
-            tune.report(
-                train_loss=train_loss.item(),
-                train_acc=train_acc.item(),
-                validation_loss=validation_loss.item(),
-                validation_acc=validation_acc.item(),
-                test_loss=test_loss.item(),
-                test_acc=test_acc.item()
-            )
-        elif args.save_checkpoint and (epoch % args.save_freq == args.save_freq-1 or epoch >= args.epochs - 5):
+        # if is_ray_tune:
+        #     with tune.checkpoint_dir(step=epoch) as checkpoint_dir:
+        #         path = os.path.join(checkpoint_dir, "checkpoint")
+        #         torch.save(server.model.state_dict(), path)
+        #
+        #     tune.report(
+        #         train_loss=train_loss.item(),
+        #         train_acc=train_acc.item(),
+        #         validation_loss=validation_loss.item(),
+        #         validation_acc=validation_acc.item(),
+        #         test_loss=test_loss.item(),
+        #         test_acc=test_acc.item()
+        #     )
+        if args.save_checkpoint and (epoch % args.save_freq == args.save_freq-1 or epoch >= args.epochs - 5):
             checkpoint_dir_epoch = f"checkpoints/{args.dataset}_{args.alg}_{args.num_users}/{epoch}/"
             os.makedirs(checkpoint_dir_epoch, exist_ok=True)
             checkpoint_dir_epoch = os.path.join(checkpoint_dir_epoch, "checkpoint")
             torch.save(server.model.state_dict(), checkpoint_dir_epoch)
 
-        train_losses.append(train_loss)
-        train_accs.append(train_acc)
-        validation_losses.append(validation_loss)
-        validation_accs.append(validation_acc)
-        test_losses.append(test_loss)
-        test_accs.append(test_acc)
+        for key in STATISTICS:
+            statistics[key].append(statistics_epoch[key])
+        # train_losses.append(train_loss)
+        # train_accs.append(train_acc)
+        # validation_losses.append(validation_loss)
+        # validation_accs.append(validation_acc)
+        # test_losses.append(test_loss)
+        # test_accs.append(test_acc)
 
     # return results
-    return train_losses, train_accs, validation_losses, validation_accs, test_losses, test_accs, logger
+    return statistics, logger
 
 def main(args, is_ray_tune = False, checkpoint_dir=None):
     '''
@@ -133,10 +139,14 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
                 "[ Ensuring local-level DP! ]"
             )
 
-    best_validation_losses_run = []
-    best_validation_accs_run = []
-    best_test_losses_run = []
-    best_test_accs_run = []
+    # best_validation_losses_run = []
+    # best_validation_accs_run = []
+    # best_test_losses_run = []
+    # best_test_accs_run = []
+
+    statistics_run_best = {}
+    for key in STATISTICS:
+        statistics_run_best[key] = []
 
     seed_run = args.seed
     for run in range(args.n_runs):
@@ -154,9 +164,10 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
 
         seed_run = seed_run * 2
 
-        train_losses, train_accs, validation_losses, validation_accs, test_losses, test_accs, logger = single_run(args, is_ray_tune, checkpoint_dir)
+        statistics_run, logger = single_run(args, is_ray_tune, checkpoint_dir)
 
         # Report the model with the best validation accuracy
+        train_loss, train_acc, validation_losses, validation_accs, test_losses, test_accs = [statistics_run[key] for key in STATISTICS]
         index = validation_accs.index(max(validation_accs))
         print(
             f"[ Performance of Model with the Best Validation Accuracy run {run}] At {index} global epochs, on dataset {args.dataset}, {args.alg} achieves\t"
@@ -178,15 +189,24 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
         os.makedirs(gn_directory, exist_ok=True)
         logger.save_gradient_norm(gn_directory, gn_name)
 
-        best_validation_losses_run.append(validation_losses[index])
-        best_validation_accs_run.append(validation_accs[index])
-        best_test_losses_run.append(test_losses[index])
-        best_test_accs_run.append(test_accs[index])
+        for key in STATISTICS:
+            statistics_run_best[key].append(statistics_run[key][index])
+        # best_validation_losses_run.append(validation_losses[index])
+        # best_validation_accs_run.append(validation_accs[index])
+        # best_test_losses_run.append(test_losses[index])
+        # best_test_accs_run.append(test_accs[index])
 
-    best_validation_losses_std, best_validation_losses_mean = torch.std_mean(torch.stack(best_validation_losses_run))
-    best_validation_accs_std, best_validation_accs_mean = torch.std_mean(torch.stack(best_validation_accs_run))
-    best_test_losses_std, best_test_losses_mean = torch.std_mean(torch.stack(best_test_losses_run))
-    best_test_accs_std, best_test_accs_mean = torch.std_mean(torch.stack(best_test_accs_run))
+
+    statistics_run_best_std, statistics_run_best_mean = {}, {}
+    for key in STATISTICS:
+        statistics_run_best_std[key] = np.std(np.stack(statistics_run_best[key]))
+        statistics_run_best_mean[key] = np.mean(np.stack(statistics_run_best[key]))
+    # best_validation_losses_std, best_validation_losses_mean = torch.std_mean(torch.stack(best_validation_losses_run))
+    # best_validation_accs_std, best_validation_accs_mean = torch.std_mean(torch.stack(best_validation_accs_run))
+    # best_test_losses_std, best_test_losses_mean = torch.std_mean(torch.stack(best_test_losses_run))
+    # best_test_accs_std, best_test_accs_mean = torch.std_mean(torch.stack(best_test_accs_run))
+    _, _, best_validation_losses_std, best_validation_accs_std, best_test_losses_std, best_test_accs_std = [statistics_run_best_std[key] for key in STATISTICS]
+    _, _, best_validation_losses_mean, best_validation_accs_mean, best_test_losses_mean, best_test_accs_mean = [statistics_run_best_mean[key] for key in STATISTICS]
     a_rule = "=" * 20
     print(a_rule)
     print(
