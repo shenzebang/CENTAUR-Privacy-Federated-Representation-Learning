@@ -305,7 +305,7 @@ class Server:
         self.logger.log(statistics_all, epoch)
 
         result_dict = statistics_all
-        additional_keys = ["sds_local", "sds_global_diff", "PE"]
+        additional_keys = ["sd_local", "sd_global_diff", "PE"]
         for key in additional_keys:
             result_dict[key] = [result[key] for result in results]
 
