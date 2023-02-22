@@ -33,6 +33,7 @@ args=(#  algorithm configuration
         --lr-head 1e-1
         --local_head_ep 1
         --global_lr 5
+        --description ICLR2023_CR_Large_Epoch
      )
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 python main.py "${args[@]}"

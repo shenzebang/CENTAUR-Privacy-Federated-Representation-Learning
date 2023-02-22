@@ -32,6 +32,7 @@ args=(#  algorithm configuration
         --lr 1e-2
         --lr-head 1e-1
         --local_head_ep 1
+        --description ICLR2023_CR_Small_Epoch
      )
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 python main.py "${args[@]}"

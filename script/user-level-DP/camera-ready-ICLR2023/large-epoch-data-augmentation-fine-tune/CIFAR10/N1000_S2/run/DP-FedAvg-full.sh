@@ -32,6 +32,7 @@ args=(--alg DP_FedAvg_ft
     --lr 1e-2
     --lr-head 1e-2
     --local_head_ep 15
+    --description ICLR2023_CR_Large_Epoch
     )
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 python main.py "${args[@]}"
