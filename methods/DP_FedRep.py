@@ -64,7 +64,7 @@ class ServerDPFedRep(Server):
 
             head_norms = []
             for client in clients:
-                head_norm = 0
+                head_norm = torch.zeros([])
                 sd_client = client.model.state_dict()
                 for key in client.local_keys:
                     head_norm += torch.norm(sd_client[key]) ** 2

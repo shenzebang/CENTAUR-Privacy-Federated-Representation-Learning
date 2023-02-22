@@ -438,7 +438,7 @@ class Logger:
             self.current_epoch = epoch
             # Store the stats of the current epoch in hisotry
             for key in STATISTICS:
-                self.statistics_history[key].append(np.stack(self.statistics_current[key]))
+                self.statistics_history[key].append(np.concatenate(self.statistics_current[key]))
 
             # self.train_losses_history.append(torch.cat(self.train_losses_current, dim=0))
             # self.train_accs_history.append(torch.cat(self.train_accs_current, dim=0))
@@ -475,7 +475,7 @@ class Logger:
     def report(self, epoch):
         if len(self.statistics_current[STATISTICS[0]]) != 0:
             for key in STATISTICS:
-                self.statistics_history[key].append(np.stack(self.statistics_current[key]))
+                self.statistics_history[key].append(np.concatenate(self.statistics_current[key]))
             # self.train_losses_history.append(torch.cat(self.train_losses_current, dim=0))
             # self.train_accs_history.append(torch.cat(self.train_accs_current, dim=0))
             # self.validation_losses_history.append(torch.cat(self.validation_losses_current, dim=0))
