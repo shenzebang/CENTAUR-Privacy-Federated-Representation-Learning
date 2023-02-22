@@ -50,14 +50,14 @@ class ServerPPSGD(Server):
             results_dict_sub_step = self.local_update(clients, epoch)
             # This step is to ensure the compatibility with the ray backend.
             if self.args.use_ray:
-                for client, sd_local, PE in zip(clients, results_dict_sub_step["sds_local"], results_dict_sub_step["PE"]):
+                for client, sd_local, PE in zip(clients, results_dict_sub_step["sd_local"], results_dict_sub_step["PE"]):
                     sd = client.model.state_dict()
                     for key in sd_local.keys():
                         sd[key] = sd_local[key]
                     client.model.load_state_dict(sd)
                     if client.idx == 0: client.PE = PE
             # 3. Server aggregate the local updates
-            self.aggregate(results_dict_sub_step["sds_global_diff"])
+            self.aggregate(results_dict_sub_step["sd_global_diff"])
             results_mega_step.add(results_dict_sub_step)
 
             if self.accountant is not None:

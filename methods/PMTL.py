@@ -63,7 +63,7 @@ class ServerPMTL(Server):
             for client, PE in zip(clients, results_dict_sub_step["PE"]):
                 if client.idx == 0: client.PE = PE
             # 3. Server aggregate the local updates
-            self.aggregate(results_dict_sub_step["sds_global_diff"])
+            self.aggregate(results_dict_sub_step["sd_global_diff"])
             results_mega_step.add(results_dict_sub_step)
 
             if self.accountant is not None:
