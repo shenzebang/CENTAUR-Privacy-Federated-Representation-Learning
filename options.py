@@ -55,6 +55,7 @@ def args_parser():
         default=False,
         help="print the mean and std of the local difference norm",
     )
+    parser.add_argument('--description', type=str, help='a description of the experiment to distinguish different runs')
 
     #########
 

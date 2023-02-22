@@ -10,6 +10,12 @@ from typing import List
 from collections import OrderedDict
 import itertools
 import os
+import pandas as pd
+from typing import Dict
+
+def save_to_csv(data_dict: Dict, save_file: str):
+    result = pd.DataFrame(data_dict)
+    result.to_csv(save_file)
 
 
 STATISTICS = ["training loss", "training accuracy", "validation loss", "validation accuracy",

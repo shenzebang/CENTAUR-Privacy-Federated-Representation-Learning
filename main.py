@@ -175,19 +175,26 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
             f"Test loss: {test_losses[index]:.2f} Test acc@1: {test_accs[index] * 100:.2f} "
         )
 
-        plot_directory = f"./plot/fairness_gap"
+        plot_directory = f"./{args.description}/plot/fairness_gap"
         os.makedirs(plot_directory, exist_ok=True)
         plot_stats_in_logger(run, logger, index, plot_directory)
         # == SNR ==
-        snr_directory = f"./log/snrs"
-        snr_name = f"/snr_{args.alg}_{args.dataset}.np"
+        snr_directory = f"./{args.description}/log/snrs"
+        snr_name = f"/{args.alg}_{args.dataset}_N{args.num_users}_S{args.shard_per_user}_R{run}.np"
         os.makedirs(snr_directory, exist_ok=True)
         logger.save_snr(snr_directory, snr_name)
         # == gradient norm ==
-        gn_directory = f"./log/gradient_norm"
-        gn_name = f"/gradient_norm_{args.alg}_{args.dataset}.np"
+        gn_directory = f"./{args.description}/log/gradient_norm"
+        gn_name = f"/{args.alg}_{args.dataset}_N{args.num_users}_S{args.shard_per_user}_R{run}.np"
         os.makedirs(gn_directory, exist_ok=True)
         logger.save_gradient_norm(gn_directory, gn_name)
+        # == statistics ==
+        statistics_directory = f"./{args.description}/log/statistics"
+        os.makedirs(statistics_directory, exist_ok=True)
+        statistics_name = f"{args.alg}_{args.dataset}_N{args.num_users}_S{args.shard_per_user}_R{run}.csv"
+        save_file = statistics_directory + statistics_name
+        save_to_csv(statistics_run, save_file)
+
 
         for key in STATISTICS:
             statistics_run_best[key].append(statistics_run[key][index])
