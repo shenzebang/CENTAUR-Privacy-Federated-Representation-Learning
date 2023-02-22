@@ -191,7 +191,7 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
         # == statistics ==
         statistics_directory = f"./{args.description}/log/statistics"
         os.makedirs(statistics_directory, exist_ok=True)
-        statistics_name = f"{args.alg}_{args.dataset}_N{args.num_users}_S{args.shard_per_user}_R{run}.csv"
+        statistics_name = f"/{args.alg}_{args.dataset}_N{args.num_users}_S{args.shard_per_user}_R{run}.csv"
         save_file = statistics_directory + statistics_name
         save_to_csv(statistics_run, save_file)
 
