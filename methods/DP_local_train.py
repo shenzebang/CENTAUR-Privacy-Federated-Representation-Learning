@@ -9,12 +9,15 @@ class ClientLocalOnly(Client):
     def step(self, step: int):
         # train_loss, train_acc = self._train() if step >= 0 else (torch.tensor(0.), torch.tensor(0.))
         test_freq_local = 10 if self.idx % 50 == 0 else 0
-        train_loss, train_acc = self._train_over_keys(self.model, self.local_keys, test_freq_local=test_freq_local) \
-                                if step >= 0 else (torch.tensor(0.), torch.tensor(0.))
+        statistics = {}
+        statistics_training = self._train_over_keys(self.model, self.local_keys, test_freq_local=test_freq_local) \
+                                if step >= 0 else (np.zeros([]), np.zeros([]))
+        statistics.update(statistics_training)
 
-        validation_loss, validation_acc, test_loss, test_acc = self.test(self.model)
+        statistics_validation_testing = self.test(self.model)
+        statistics.update(statistics_validation_testing)
 
-        return self.report(self.model, self.model, train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc, loss_acc_only=True)
+        return self.report(self.model, self.model, statistics, loss_acc_only=True)
 
 
 class ServerLocalOnly(Server):

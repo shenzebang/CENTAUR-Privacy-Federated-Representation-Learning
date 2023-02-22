@@ -1,6 +1,6 @@
 from matplotlib import pyplot
 import numpy as np
-from utils.common_utils import Logger
+from utils.common_utils import Logger, STATISTICS
 
 
 def plot_per_client_stats(run: int, stats: np.ndarray, stats_name: str, save_dir=None):
@@ -30,13 +30,16 @@ def plot_snr(run: int, snrs: np.ndarray, save_dir=None):
         pyplot.savefig(f'{save_dir}/snr_run_{run}.pdf')
 
 def plot_stats_in_logger(run: int, logger: Logger, epoch: int, plot_save_dir=None):
-    train_losses, train_accs, validation_losses, validation_accs, test_losses, test_accs = logger.report(epoch)
-    plot_per_client_stats(run, train_losses, "training loss", plot_save_dir)
-    plot_per_client_stats(run, train_accs, "training accuracy", plot_save_dir)
-    plot_per_client_stats(run, validation_losses, "validation loss", plot_save_dir)
-    plot_per_client_stats(run, validation_accs, "validation accuracy", plot_save_dir)
-    plot_per_client_stats(run, test_losses, "testing loss", plot_save_dir)
-    plot_per_client_stats(run, test_accs, "testing accuracy", plot_save_dir)
+    # train_losses, train_accs, validation_losses, validation_accs, test_losses, test_accs = logger.report(epoch)
+    statistics_epoch = logger.report(epoch)
+    for key in STATISTICS:
+        plot_per_client_stats(run, statistics_epoch[key], key, plot_save_dir)
+    # plot_per_client_stats(run, train_losses, "training loss", plot_save_dir)
+    # plot_per_client_stats(run, train_accs, "training accuracy", plot_save_dir)
+    # plot_per_client_stats(run, validation_losses, "validation loss", plot_save_dir)
+    # plot_per_client_stats(run, validation_accs, "validation accuracy", plot_save_dir)
+    # plot_per_client_stats(run, test_losses, "testing loss", plot_save_dir)
+    # plot_per_client_stats(run, test_accs, "testing accuracy", plot_save_dir)
 
     # plot_snr(run, logger.report_snr(), plot_save_dir)
 

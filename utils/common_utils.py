@@ -11,6 +11,10 @@ from collections import OrderedDict
 import itertools
 import os
 
+
+STATISTICS = ["training loss", "training accuracy", "validation loss", "validation accuracy",
+              "testing loss", "testing accuracy"]
+
 def accuracy(preds: np.ndarray, labels: np.ndarray):
     return (preds == labels).mean()
 
@@ -374,50 +378,41 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
 
 class Results:
     def __init__(self):
-        self.train_losses = []
-        self.train_accs = []
-        self.validation_losses = []
-        self.validation_accs = []
-        self.test_losses = []
-        self.test_accs = []
+        self.statistics = {}
+        for key in STATISTICS:
+            self.statistics[key] = []
 
     def add(self, result):
-        train_loss = result["train loss"]
-        train_acc = result["train acc"]
-        validation_loss = result["validation loss"]
-        validation_acc = result["validation acc"]
-        test_loss = result["test loss"]
-        test_acc = result["test acc"]
-        self.train_losses.append(train_loss)
-        self.train_accs.append(train_acc)
-        self.validation_losses.append(validation_loss)
-        self.validation_accs.append(validation_acc)
-        self.test_losses.append(test_loss)
-        self.test_accs.append(test_acc)
+        for key in STATISTICS:
+            self.statistics[key].append(result[key])
 
     def mean(self):
-        return (torch.mean(torch.stack(self.train_losses)),
-                torch.mean(torch.stack(self.train_accs)),
-                torch.mean(torch.stack(self.validation_losses)),
-                torch.mean(torch.stack(self.validation_accs)),
-                torch.mean(torch.stack(self.test_losses)),
-                torch.mean(torch.stack(self.test_accs)))
+        statistics_mean = {}
+        for key in STATISTICS:
+            statistics_mean[key] = np.mean(np.stack(self.statistics[key]))
+
+        return statistics_mean
 
 class Logger:
     def __init__(self):
-        self.train_losses_history = []
-        self.train_accs_history = []
-        self.validation_losses_history = []
-        self.validation_accs_history = []
-        self.test_losses_history = []
-        self.test_accs_history = []
-
-        self.train_losses_current = []
-        self.train_accs_current = []
-        self.validation_losses_current = []
-        self.validation_accs_current = []
-        self.test_losses_current = []
-        self.test_accs_current = []
+        self.statistics_history = {}
+        for key in STATISTICS:
+            self.statistics_history[key] = []
+        # self.train_losses_history = []
+        # self.train_accs_history = []
+        # self.validation_losses_history = []
+        # self.validation_accs_history = []
+        # self.test_losses_history = []
+        # self.test_accs_history = []
+        self.statistics_current = {}
+        for key in STATISTICS:
+            self.statistics_current[key] = []
+        # self.train_losses_current = []
+        # self.train_accs_current = []
+        # self.validation_losses_current = []
+        # self.validation_accs_current = []
+        # self.test_losses_current = []
+        # self.test_accs_current = []
         
         self.current_epoch = 0
 
@@ -425,14 +420,16 @@ class Logger:
         self.gradient_norm_means = []
         self.gradient_norm_stds = []
 
-    def log(self, stats_dict_all, epoch):
+    def log(self, statistics_all, epoch):
         if epoch == self.current_epoch:
-            self.train_losses_current.append(stats_dict_all["train loss"])
-            self.train_accs_current.append(stats_dict_all["train acc"])
-            self.validation_losses_current.append(stats_dict_all["validation loss"])
-            self.validation_accs_current.append(stats_dict_all["validation acc"])
-            self.test_losses_current.append(stats_dict_all["test loss"])
-            self.test_accs_current.append(stats_dict_all["test acc"])
+            for key in STATISTICS:
+                self.statistics_current[key].append(statistics_all[key])
+            # self.train_losses_current.append(stats_dict_all["train loss"])
+            # self.train_accs_current.append(stats_dict_all["train acc"])
+            # self.validation_losses_current.append(stats_dict_all["validation loss"])
+            # self.validation_accs_current.append(stats_dict_all["validation acc"])
+            # self.test_losses_current.append(stats_dict_all["test loss"])
+            # self.test_accs_current.append(stats_dict_all["test acc"])
         else:
             if epoch != self.current_epoch + 1:
                 raise ValueError("The stats should be logger sequentially!")
@@ -440,18 +437,21 @@ class Logger:
             # This is a new epoch
             self.current_epoch = epoch
             # Store the stats of the current epoch in hisotry
-            self.train_losses_history.append(torch.cat(self.train_losses_current, dim=0))
-            self.train_accs_history.append(torch.cat(self.train_accs_current, dim=0))
-            self.validation_losses_history.append(torch.cat(self.validation_losses_current, dim=0))
-            self.validation_accs_history.append(torch.cat(self.validation_accs_current, dim=0))
-            self.test_losses_history.append(torch.cat(self.test_losses_current, dim=0))
-            self.test_accs_history.append(torch.cat(self.test_accs_current, dim=0))
+            for key in STATISTICS:
+                self.statistics_history[key].append(np.stack(self.statistics_current[key]))
+
+            # self.train_losses_history.append(torch.cat(self.train_losses_current, dim=0))
+            # self.train_accs_history.append(torch.cat(self.train_accs_current, dim=0))
+            # self.validation_losses_history.append(torch.cat(self.validation_losses_current, dim=0))
+            # self.validation_accs_history.append(torch.cat(self.validation_accs_current, dim=0))
+            # self.test_losses_history.append(torch.cat(self.test_losses_current, dim=0))
+            # self.test_accs_history.append(torch.cat(self.test_accs_current, dim=0))
 
             # Clear the current stats
             self._reset()
 
             # Store the input stats
-            self.log(stats_dict_all, epoch)
+            self.log(statistics_all, epoch)
             
     def log_snr(self, snr: np.ndarray):
         self.snrs.append(snr)
@@ -463,26 +463,36 @@ class Logger:
 
 
     def _reset(self):
-        self.train_losses_current = []
-        self.train_accs_current = []
-        self.validation_losses_current = []
-        self.validation_accs_current = []
-        self.test_losses_current = []
-        self.test_accs_current = []
+        for key in STATISTICS:
+            self.statistics_current[key] = []
+        # self.train_losses_current = []
+        # self.train_accs_current = []
+        # self.validation_losses_current = []
+        # self.validation_accs_current = []
+        # self.test_losses_current = []
+        # self.test_accs_current = []
         
     def report(self, epoch):
-        if len(self.train_losses_current) != 0:
-            self.train_losses_history.append(torch.cat(self.train_losses_current, dim=0))
-            self.train_accs_history.append(torch.cat(self.train_accs_current, dim=0))
-            self.validation_losses_history.append(torch.cat(self.validation_losses_current, dim=0))
-            self.validation_accs_history.append(torch.cat(self.validation_accs_current, dim=0))
-            self.test_losses_history.append(torch.cat(self.test_losses_current, dim=0))
-            self.test_accs_history.append(torch.cat(self.test_accs_current, dim=0))
+        if len(self.statistics_current[STATISTICS[0]]) != 0:
+            for key in STATISTICS:
+                self.statistics_history[key].append(np.stack(self.statistics_current[key]))
+            # self.train_losses_history.append(torch.cat(self.train_losses_current, dim=0))
+            # self.train_accs_history.append(torch.cat(self.train_accs_current, dim=0))
+            # self.validation_losses_history.append(torch.cat(self.validation_losses_current, dim=0))
+            # self.validation_accs_history.append(torch.cat(self.validation_accs_current, dim=0))
+            # self.test_losses_history.append(torch.cat(self.test_losses_current, dim=0))
+            # self.test_accs_history.append(torch.cat(self.test_accs_current, dim=0))
 
             self._reset()
 
-        return self.train_losses_history[epoch], self.train_accs_history[epoch], self.validation_losses_history[epoch],\
-                    self.validation_accs_history[epoch], self.test_losses_history[epoch], self.test_accs_history[epoch]
+        statistics_epoch = {}
+        for key in STATISTICS:
+            statistics_epoch[key] = self.statistics_history[key][epoch]
+
+        return statistics_epoch
+
+        # return self.train_losses_history[epoch], self.train_accs_history[epoch], self.validation_losses_history[epoch],\
+        #             self.validation_accs_history[epoch], self.test_losses_history[epoch], self.test_accs_history[epoch]
 
     def report_snr(self):
         return np.concatenate(self.snrs)

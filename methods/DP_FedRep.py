@@ -22,17 +22,18 @@ class ClientDPFedRep(Client):
         _, _ = self._fine_tune_over_head(model_new, self.local_keys)
 
         # 2. Calculate the performance of the representation from the previous iteration
-        #    The performance is the
-        validation_loss, validation_acc, test_loss, test_acc = self.test(model_new)
+        statistics = {}
+        statistics_validation_testing = self.test(model_new)
+        statistics.update(statistics_validation_testing)
 
         # 3. Update the representation
         # train_loss, train_acc = self._train_representation() if epoch >=0 else (torch.tensor(0.), torch.tensor(0.))
-        train_loss, train_acc = self._train_over_keys(model_new, self.global_keys) \
-                                    if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
+        statistics_training = self._train_over_keys(model_new, self.global_keys) \
+                                    if epoch >= 0 else (np.zeros([]), np.zeros([]))
+        statistics.update(statistics_training)
 
         # return the accuracy, the updated head, and the representation difference
-        return self.report(model_old, model_new, train_loss, train_acc, validation_loss, validation_acc, test_loss,
-                           test_acc)
+        return self.report(model_old, model_new, statistics)
 
 
 class ServerDPFedRep(Server):
@@ -54,7 +55,7 @@ class ServerDPFedRep(Server):
             results_dict_sub_step = self.local_update(clients, epoch)
             # This step is to ensure the compatibility with the ray backend.
             if self.args.use_ray:
-                for client, sd_local, PE in zip(clients, results_dict_sub_step["sds_local"], results_dict_sub_step["PEs"]):
+                for client, sd_local, PE in zip(clients, results_dict_sub_step["sds_local"], results_dict_sub_step["PE"]):
                     sd = client.model.state_dict()
                     for key in sd_local.keys():
                         sd[key] = sd_local[key]

@@ -1,4 +1,5 @@
 import copy
+import numpy as np
 import warnings
 import gc
 from opacus.utils.batch_memory_manager import wrap_data_loader
@@ -19,22 +20,25 @@ class ClientDPFedAvgFT(Client):
         # _, _ = self._fine_tune_head(model_head)
         _, _ = self._fine_tune_over_head(model_head, self.fine_tune_keys)
 
+
+        statistics = {}
         # 2. Calculate the performance of the representation from the previous iteration
         #    Only the fine tuned model is tested
-        validation_loss, validation_acc, test_loss, test_acc = self.test(model_head)
-
+        statistics_validation_testing = self.test(model_head)
+        statistics.update(statistics_validation_testing)
         del model_head
 
         # 3. Update the representation
         # train_loss, train_acc = self._train() if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
         model_old = self.model
         model_new = copy.deepcopy(model_old)
-        train_loss, train_acc = self._train_over_keys(model_new, self.global_keys) \
-                                if epoch >= 0 else (torch.tensor(0.), torch.tensor(0.))
+        statistics_training = self._train_over_keys(model_new, self.global_keys) \
+                                if epoch >= 0 else (np.zeros([]), np.zeros([]))
+        statistics.update(statistics_training)
+
 
         # return the accuracy and the model difference
-        return self.report(model_old, model_new, train_loss, train_acc, validation_loss, validation_acc, test_loss,
-                           test_acc)
+        return self.report(model_old, model_new, statistics)
 
 class ServerDPFedAvgFT(Server):
 
@@ -53,7 +57,7 @@ class ServerDPFedAvgFT(Server):
             # 2. Server orchestrates the clients to perform local updates
             results_dict_sub_step = self.local_update(clients, epoch)
             # This step is to ensure the compatibility with the ray backend.
-            for client, PE in zip(clients, results_dict_sub_step["PEs"]):
+            for client, PE in zip(clients, results_dict_sub_step["PE"]):
                 if client.idx == 0: client.PE = PE
             # 3. Server aggregate the local updates
             self.aggregate(results_dict_sub_step["sds_global_diff"])

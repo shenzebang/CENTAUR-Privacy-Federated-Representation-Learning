@@ -1,5 +1,6 @@
 import warnings
 
+import torch
 from opacus.accountants import RDPAccountant
 from torch import optim
 from opacus.utils.batch_memory_manager import wrap_data_loader
@@ -8,6 +9,8 @@ from utils.data_utils import prepare_ft_dataloader
 from utils.common_utils import *
 from utils.ray_remote_worker import *
 import copy
+
+from utils.common_utils import STATISTICS
 
 class Client:
     def __init__(self,
@@ -109,8 +112,11 @@ class Client:
         # Using PE to privitize the model will change the keys of model.state_dict()
         # This subroutine restores the keys to the non-DP model
         # self.model.load_state_dict(fix_DP_model_keys(self.args, model))
+        statistics = {}
+        statistics["training loss"] = np.mean(losses)
+        statistics["training accuracy"] = np.mean(top1_acc)
 
-        return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
+        return statistics
 
     def _fine_tune_over_head(self, model: nn.Module, keys: List[str]):
         activate_in_keys(model, keys)
@@ -165,15 +171,16 @@ class Client:
                 acc = accuracy(preds, labels)
                 top1_acc.append(acc)
 
-        return torch.tensor(np.mean(losses)), torch.tensor(np.mean(top1_acc))
+        return np.mean(losses), np.mean(top1_acc)
 
     def test(self, model_test: nn.Module):
-        validation_loss, validation_top1_acc = self._eval(model_test, self.validation_dataloader)
-        test_loss, test_top1_acc = self._eval(model_test, self.test_dataloader)
+        statistics = {}
+        statistics["validation loss"], statistics["validation accuracy"] = self._eval(model_test, self.validation_dataloader)
+        statistics["testing loss"], statistics["testing accuracy"] = self._eval(model_test, self.test_dataloader)
 
-        return validation_loss, validation_top1_acc, test_loss, test_top1_acc
+        return statistics
 
-    def report(self, model_old, model_new, train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc, loss_acc_only=False):
+    def report(self, model_old, model_new, statistics, loss_acc_only=False):
         if self.args.verbose:
             print(
                 f"Client {self.idx} finished."
@@ -190,17 +197,25 @@ class Client:
         sd_global_diff = {key: sd_new[key] - sd_old[key] for key in sd_new.keys() if key in self.global_keys} if not loss_acc_only else None
 
 
-        result_dict = {
-            "train loss": train_loss.cpu(),
-            "train acc": train_acc.cpu(),
-            "validation loss": validation_loss.cpu(),
-            "validation acc": validation_acc.cpu(),
-            "test loss": test_loss.cpu(),
-            "test acc": test_acc.cpu(),
-            "sd_local": sd_local,
-            "sd_global_diff": sd_global_diff,
-            "PE": self.PE if self.idx == 0 else None
-        }
+        # result_dict = {
+        #     "train loss": train_loss.cpu(),
+        #     "train acc": train_acc.cpu(),
+        #     "validation loss": validation_loss.cpu(),
+        #     "validation acc": validation_acc.cpu(),
+        #     "test loss": test_loss.cpu(),
+        #     "test acc": test_acc.cpu(),
+        #     "sd_local": sd_local,
+        #     "sd_global_diff": sd_global_diff,
+        #     "PE": self.PE if self.idx == 0 else None
+        # }
+
+        # statistics is a dictionary containing keys in STATISTICS
+        result_dict = statistics
+        # add additional elements in result_dict
+        result_dict["sd_local"] = sd_local
+        result_dict["sd_global_diff"] = sd_global_diff
+        result_dict["PE"] = self.PE if self.idx == 0 else None
+
         return result_dict
 
 
@@ -284,34 +299,24 @@ class Server:
         '''
         results = compute_with_remote_workers(self.remote_workers, clients, epoch)
 
-        stats_dict_all = {
-            "train loss": torch.stack([result["train loss"] for result in results]),
-            "train acc": torch.stack([result["train acc"] for result in results]),
-            "validation loss": torch.stack([result["validation loss"] for result in results]),
-            "validation acc": torch.stack([result["validation acc"] for result in results]),
-            "test loss": torch.stack([result["test loss"] for result in results]),
-            "test acc": torch.stack([result["test acc"] for result in results]),
-        }
-        self.logger.log(stats_dict_all, epoch)
+        statistics_all = {}
+        for key in STATISTICS:
+            statistics_all[key] = np.stack([result[key] for result in results])
+        self.logger.log(statistics_all, epoch)
 
-        result_dict = {
-            "train loss": torch.mean(torch.stack([result["train loss"] for result in results])),
-            "train acc": torch.mean(torch.stack([result["train acc"] for result in results])),
-            "validation loss": torch.mean(torch.stack([result["validation loss"] for result in results])),
-            "validation acc": torch.mean(torch.stack([result["validation acc"] for result in results])),
-            "test loss": torch.mean(torch.stack([result["test loss"] for result in results])),
-            "test acc": torch.mean(torch.stack([result["test acc"] for result in results])),
-            "sds_local": [result["sd_local"] for result in results],
-            "sds_global_diff": [result["sd_global_diff"] for result in results],
-            "PEs": [result["PE"] for result in results]
-        }
+        result_dict = statistics_all
+        additional_keys = ["sds_local", "sds_global_diff", "PE"]
+        for key in additional_keys:
+            result_dict[key] = [result[key] for result in results]
+
         return result_dict
 
     def step(self, epoch: int):
         raise NotImplementedError
 
     def report(self, epoch, results: Results):
-        train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = results.mean()
+        statistics_mean = results.mean()
+        train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc = [statistics_mean[key] for key in STATISTICS]
         if not self.args.disable_dp:
             for client in self.clients: # only client[0] maintains the accountant history
                 if client.idx == 0:
@@ -370,7 +375,7 @@ class Server:
                     f"acc@1: {test_acc * 100:.2f} "
                     "[ TEST ]"
                 )
-        return train_loss, train_acc, validation_loss, validation_acc, test_loss, test_acc
+        return statistics_mean
 
     def divide_into_subgroups(self):
         if self.args.frac_participate < 1:
