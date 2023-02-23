@@ -8,7 +8,7 @@ args=(#  algorithm configuration
         --num_classes 100
         #  experiment configuration
         #      --data_augmentation
-        --epochs 100
+        --epochs 200
         --seed 1
         --num_users 1000
         --n_runs 3

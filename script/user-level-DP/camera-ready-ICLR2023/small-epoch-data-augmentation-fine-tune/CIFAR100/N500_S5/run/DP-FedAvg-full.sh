@@ -8,7 +8,7 @@ args=(--alg DP_FedAvg_ft
     #  experiment configuration
 #     --data_augmentation
 #     --data_augmentation_multiplicity 16
-    --epochs 100
+    --epochs 200
     --seed 1
     --num_users 500
     --n_runs 3
