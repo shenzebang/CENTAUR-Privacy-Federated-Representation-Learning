@@ -27,6 +27,7 @@ TRANSFORM_NORMALIZATION = {
 TRANSFORM_AUGMENTATION = {
     "cifar10"       : trans_cifar10_augmentation,
     "cifar100"      : trans_cifar100_augmentation,
+    "emnist_d"        : trans_emnist_augmentation,
     "fashionmnist"  : trans_fashionmnist_augmentation,
 }
 
