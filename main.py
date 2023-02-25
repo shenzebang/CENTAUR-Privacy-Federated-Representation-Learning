@@ -186,8 +186,10 @@ def main(args, is_ray_tune = False, checkpoint_dir=None):
         # == gradient norm ==
         gn_directory = f"./{args.description}/log/gradient_norm"
         gn_name = f"/{args.alg}_{args.dataset}_N{args.num_users}_S{args.shard_per_user}_R{run}.np"
+        rep_gn_name = f"/{args.alg}_{args.dataset}_N{args.num_users}_S{args.shard_per_user}_R{run}_rep.np"
         os.makedirs(gn_directory, exist_ok=True)
         logger.save_gradient_norm(gn_directory, gn_name)
+        logger.save_rep_gradient_norm(gn_directory, rep_gn_name)
         # == statistics ==
         statistics_directory = f"./{args.description}/log/statistics"
         os.makedirs(statistics_directory, exist_ok=True)
