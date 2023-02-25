@@ -345,16 +345,22 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
             snr = -1
         else: # The server performs clip.
             norm_diff_clients = [ torch.ones(1) ] * n_clients
-            # 1. Calculate the norm of differences
+            norm_diff_rep_clients = [ torch.ones(1) ] * n_clients
+            # 1. Calculate the norm of differences for global keys
             for cid, sd_global_diff in enumerate(sds_global_diff):
                 norm_diff_cid_square = [torch.norm(sd_global_diff[key]) ** 2 for key in keys]
+                norm_diff_rep_cid_square = [torch.norm(sd_global_diff[key]) ** 2 for key in representation_keys]
                 norm_diff_clients[cid] = torch.sqrt(torch.sum(torch.stack(norm_diff_cid_square)))
+                norm_diff_rep_clients[cid] = torch.sqrt(torch.sum(torch.stack(norm_diff_rep_cid_square)))
 
             if print_diff_norm:
                 norm_diff_std, norm_diff_mean = torch.std_mean(torch.stack(norm_diff_clients))
                 print(f"[Norm diff mean: {norm_diff_mean: .5f}, norm diff std: {norm_diff_std: .5f}]")
+                norm_diff_rep_std, norm_diff_rep_mean = torch.std_mean(torch.stack(norm_diff_rep_clients))
+                print(f"[Norm diff for rep mean: {norm_diff_rep_mean: .5f}, norm diff for rep std: {norm_diff_rep_std: .5f}]")
             else:
-                norm_diff_std, norm_diff_mean = torch.zeros([]), torch.zeros([])
+                norm_diff_std, norm_diff_mean, norm_diff_rep_std, norm_diff_rep_mean= torch.zeros([]), torch.zeros([]), torch.zeros([]), torch.zeros([])
+
             # 2. Rescale the diffs
             rescale_clients = [1 if norm_diff_client<clip_threshold else clip_threshold/norm_diff_client
                                  for norm_diff_client in norm_diff_clients]
@@ -380,7 +386,10 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
 
             snr = signal_per_dim / noise_level * n_clients
 
-    return sd, snr.numpy(), norm_diff_mean[None].numpy(), norm_diff_std[None].numpy()
+            signal_per_dim = signal / total_numel
+
+            snr = signal_per_dim / noise_level * n_clients
+    return sd, snr.numpy(), norm_diff_mean[None].numpy(), norm_diff_std[None].numpy(), norm_diff_rep_mean[None].numpy(), norm_diff_rep_std[None].numpy()
 
 class Results:
     def __init__(self):
@@ -425,6 +434,8 @@ class Logger:
         self.snrs = []
         self.gradient_norm_means = []
         self.gradient_norm_stds = []
+        self.rep_gradient_norm_means = []
+        self.rep_gradient_norm_stds = []
 
     def log(self, statistics_all, epoch):
         if epoch == self.current_epoch:
@@ -467,6 +478,10 @@ class Logger:
         self.gradient_norm_means.append(norm_mean)
         self.gradient_norm_stds.append(norm_std)
 
+    def log_rep_gradient_norm(self, norm_mean: np.ndarray, norm_std: np.ndarray):
+        self.rep_gradient_norm_means.append(norm_mean)
+        self.rep_gradient_norm_stds.append(norm_std)
+
 
     def _reset(self):
         for key in STATISTICS:
@@ -506,6 +521,9 @@ class Logger:
     def report_gradient_norm(self):
         return np.concatenate(self.gradient_norm_means), np.concatenate(self.gradient_norm_stds)
 
+    def report_rep_gradient_norm(self):
+        return np.concatenate(self.rep_gradient_norm_means), np.concatenate(self.rep_gradient_norm_stds)
+
     def save_snr(self, save_directory, save_name):
         snrs = self.report_snr()
         file_name = save_directory + save_name
@@ -514,6 +532,12 @@ class Logger:
 
     def save_gradient_norm(self, save_directory, save_name):
         g_mean, g_std = self.report_gradient_norm()
+        file_name = save_directory + save_name
+        with open(file_name, 'wb') as f:
+            np.save(f, np.stack([g_mean, g_std]))
+    
+    def save_rep_gradient_norm(self, save_directory, save_name):
+        g_mean, g_std = self.report_rep_gradient_norm()
         file_name = save_directory + save_name
         with open(file_name, 'wb') as f:
             np.save(f, np.stack([g_mean, g_std]))

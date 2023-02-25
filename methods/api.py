@@ -285,11 +285,12 @@ class Server:
 
         noise_level = self.args.dp_clip * self.noise_multiplier
 
-        sd, snr, norm_diff_mean, norm_diff_std = server_update_with_clip(sd, sds_global_diff, self.global_keys,
+        sd, snr, norm_diff_mean, norm_diff_std, norm_diff_rep_mean, norm_diff_rep_std = server_update_with_clip(sd, sds_global_diff, self.global_keys,
                                                                          self.representation_keys, self.clip_threshold,
                                      self.args.global_lr, noise_level, self.args.aggr, self.args.print_diff_norm)
         self.logger.log_snr(snr)
         self.logger.log_gradient_norm(norm_diff_mean, norm_diff_std)
+        self.logger.log_rep_gradient_norm(norm_diff_rep_mean, norm_diff_rep_std)
         self.model.load_state_dict(sd)
 
     def local_update(self, clients: List[Client], epoch: int):
