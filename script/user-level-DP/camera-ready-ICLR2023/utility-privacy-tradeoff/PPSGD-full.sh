@@ -38,5 +38,4 @@ args=(#  algorithm configuration
      )
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 python main.py "${args[@]}"
-for eps in .25 .5 2 4
-do
+done
