@@ -342,7 +342,9 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
             for key in keys:
                 sds_global_diff_key = [sd_global_diff[key] for sd_global_diff in sds_global_diff]
                 sd[key] = sd[key] + global_lr * aggr_op(torch.stack(sds_global_diff_key, dim=0), dim=0)
-            snr = -1
+            snr = torch.ones([]) * -1
+            norm_diff_std, norm_diff_mean, norm_diff_rep_std, norm_diff_rep_mean = torch.zeros([]), torch.zeros(
+                []), torch.zeros([]), torch.zeros([])
         else: # The server performs clip.
             norm_diff_clients = [ torch.ones(1) ] * n_clients
             norm_diff_rep_clients = [ torch.ones(1) ] * n_clients
@@ -359,7 +361,7 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
                 norm_diff_rep_std, norm_diff_rep_mean = torch.std_mean(torch.stack(norm_diff_rep_clients))
                 print(f"[Norm diff for rep mean: {norm_diff_rep_mean: .5f}, norm diff for rep std: {norm_diff_rep_std: .5f}]")
             else:
-                norm_diff_std, norm_diff_mean, norm_diff_rep_std, norm_diff_rep_mean= torch.zeros([]), torch.zeros([]), torch.zeros([]), torch.zeros([])
+                norm_diff_std, norm_diff_mean, norm_diff_rep_std, norm_diff_rep_mean = torch.zeros([]), torch.zeros([]), torch.zeros([]), torch.zeros([])
 
             # 2. Rescale the diffs
             rescale_clients = [1 if norm_diff_client<clip_threshold else clip_threshold/norm_diff_client
