@@ -16,9 +16,15 @@ class ClientPPSGD(Client):
         model_new = copy.deepcopy(self.model)
         _, _ = self._fine_tune_over_head(model_new, self.local_keys)
 
+        local_head_ep = self.args.local_head_ep
+        model_test = copy.deepcopy(self.model)
+        self.args.local_head_ep = 15
+        _, _ = self._fine_tune_over_head(model_test, self.local_keys)
+        self.args.local_head_ep = local_head_ep
+
         # 2. Calculate the performance of the representation from the previous iteration
         statistics = {}
-        statistics_validation_testing = self.test(model_new)
+        statistics_validation_testing = self.test(model_test)
         statistics.update(statistics_validation_testing)
 
         # 3. Update the representation
