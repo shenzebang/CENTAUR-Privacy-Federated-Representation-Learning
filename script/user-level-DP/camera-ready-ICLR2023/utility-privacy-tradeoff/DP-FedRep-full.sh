@@ -31,6 +31,7 @@ args=(--alg DP_FedRep
     --batch_size 100
     --local_ep 1
     # --verbose
+    --print_freq 20
     # algorithm specific configuration
     --lr 1e-2
     --lr-head 1e-2

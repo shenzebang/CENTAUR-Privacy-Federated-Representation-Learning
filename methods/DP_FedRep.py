@@ -69,8 +69,8 @@ class ServerDPFedRep(Server):
                 for key in client.local_keys:
                     head_norm += torch.norm(sd_client[key]) ** 2
                 head_norms.append(torch.sqrt(head_norm))
-            head_std, head_mean = torch.std_mean(torch.stack(head_norms))
-            print(f"head norm is {head_mean}({head_std})")
+            # head_std, head_mean = torch.std_mean(torch.stack(head_norms))
+            # print(f"head norm is {head_mean}({head_std})")
 
             # 3. Server aggregate the local updates
             self.aggregate(results_dict_sub_step["sd_global_diff"])
