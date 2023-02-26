@@ -6,10 +6,12 @@ trans_emnist_normalization = transforms.Compose([transforms.ToTensor(), transfor
 
 trans_fashionmnist_normalization = transforms.Compose([transforms.ToTensor(),])
 
-trans_fashionmnist_augmentation = transforms.Compose([   transforms.RandomCrop(32, padding=4),
-                                                    transforms.RandomHorizontalFlip(),])
+trans_fashionmnist_augmentation = transforms.Compose([
+    # transforms.RandomCrop(28, padding=4),
+    transforms.RandomRotation(degrees=(-30, 30)),
+    transforms.RandomHorizontalFlip(),])
 
-trans_emnist_augmentation = transforms.Compose([   transforms.RandomCrop(32, padding=4),
+trans_emnist_augmentation = transforms.Compose([   transforms.RandomCrop(28, padding=4),
                                                     transforms.RandomHorizontalFlip(),])
 
 trans_cifar10_normalization = transforms.Compose([  transforms.ToTensor(),
