@@ -139,8 +139,10 @@ class Client:
         for head_epoch in range(self.args.local_head_ep):
             for _batch_idx, (data, target) in enumerate(ft_dataloader):
                 data, target = data.to(self.device), target.to(self.device)
-                # output = model(data, head=True)
-                output = model(data)
+                if self.args.data_augmentation:
+                    output = model(data)
+                else:
+                    output = model(data, head=True)
                 loss = self.criterion(output, target)
                 loss.backward()
                 optimizer.step()
