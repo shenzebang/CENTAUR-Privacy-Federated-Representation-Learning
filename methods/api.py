@@ -128,11 +128,14 @@ class Client:
                               weight_decay=self.args.weight_decay
                               )
 
-        self.train_dataloader.dataset.enable_augmentation()
         losses = []
         top1_acc = []
-        # ft_dataloader = prepare_ft_dataloader(self.args, self.device, model, self.train_dataloader.dataset.d_split)
-        ft_dataloader = self.train_dataloader
+        if self.args.data_augmentation:
+            self.train_dataloader.dataset.enable_augmentation()
+            ft_dataloader = self.train_dataloader
+        else:
+            ft_dataloader = prepare_ft_dataloader(self.args, self.device, model, self.train_dataloader.dataset.d_split)
+
         for head_epoch in range(self.args.local_head_ep):
             for _batch_idx, (data, target) in enumerate(ft_dataloader):
                 data, target = data.to(self.device), target.to(self.device)
