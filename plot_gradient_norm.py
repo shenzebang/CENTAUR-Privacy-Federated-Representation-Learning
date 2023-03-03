@@ -26,13 +26,13 @@ def plot_grad(n_steps, norms, i, description):
 
 methods = ["DP_FedAvg_ft"]
 datasets = ["cifar10"]
-num_runs = 3
+num_runs = 1
 setup = "N1000_S2"
 
 for dataset in datasets:
     for i in range(num_runs):
-        norms = []
         for method in methods:
+            norms = []
             norms.append(np.load(f"ICLR2023_CR_Large_Epoch/log/gradient_norm/{method}_{dataset}_{setup}_R{i}.np"))
             norms.append(np.load(f"ICLR2023_CR_Large_Epoch/log/gradient_norm/{method}_{dataset}_{setup}_R{i}_rep.np"))
         n_steps = norms[0][0].shape[0]

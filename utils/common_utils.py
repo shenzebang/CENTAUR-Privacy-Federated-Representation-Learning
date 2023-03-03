@@ -337,31 +337,29 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
     n_clients = len(sds_global_diff)
 
     with torch.autograd.no_grad():
+        norm_diff_clients = [ torch.ones(1) ] * n_clients
+        norm_diff_rep_clients = [ torch.ones(1) ] * n_clients
+        # 1. Calculate and save the norm of differences for global keys
+        for cid, sd_global_diff in enumerate(sds_global_diff):
+            norm_diff_cid_square = [torch.norm(sd_global_diff[key]) ** 2 for key in keys]
+            norm_diff_rep_cid_square = [torch.norm(sd_global_diff[key]) ** 2 for key in representation_keys]
+            norm_diff_clients[cid] = torch.sqrt(torch.sum(torch.stack(norm_diff_cid_square)))
+            norm_diff_rep_clients[cid] = torch.sqrt(torch.sum(torch.stack(norm_diff_rep_cid_square)))
+
+        if print_diff_norm:
+            norm_diff_std, norm_diff_mean = torch.std_mean(torch.stack(norm_diff_clients))
+            print(f"[Norm diff mean: {norm_diff_mean: .5f}, norm diff std: {norm_diff_std: .5f}]")
+            norm_diff_rep_std, norm_diff_rep_mean = torch.std_mean(torch.stack(norm_diff_rep_clients))
+            print(f"[Norm diff for rep mean: {norm_diff_rep_mean: .5f}, norm diff for rep std: {norm_diff_rep_std: .5f}]")
+        else:
+            norm_diff_std, norm_diff_mean, norm_diff_rep_std, norm_diff_rep_mean= torch.zeros([]), torch.zeros([]), torch.zeros([]), torch.zeros([])
         if clip_threshold <= 0: # The server performs no clip.
             aggr_op = AGGR_OPS[aggr]
             for key in keys:
                 sds_global_diff_key = [sd_global_diff[key] for sd_global_diff in sds_global_diff]
                 sd[key] = sd[key] + global_lr * aggr_op(torch.stack(sds_global_diff_key, dim=0), dim=0)
-            snr = torch.ones([]) * -1
-            norm_diff_std, norm_diff_mean, norm_diff_rep_std, norm_diff_rep_mean = torch.zeros([]), torch.zeros(
-                []), torch.zeros([]), torch.zeros([])
+            snr = torch.ones(1) * (-1)
         else: # The server performs clip.
-            norm_diff_clients = [ torch.ones(1) ] * n_clients
-            norm_diff_rep_clients = [ torch.ones(1) ] * n_clients
-            # 1. Calculate the norm of differences for global keys
-            for cid, sd_global_diff in enumerate(sds_global_diff):
-                norm_diff_cid_square = [torch.norm(sd_global_diff[key]) ** 2 for key in keys]
-                norm_diff_rep_cid_square = [torch.norm(sd_global_diff[key]) ** 2 for key in representation_keys]
-                norm_diff_clients[cid] = torch.sqrt(torch.sum(torch.stack(norm_diff_cid_square)))
-                norm_diff_rep_clients[cid] = torch.sqrt(torch.sum(torch.stack(norm_diff_rep_cid_square)))
-
-            if print_diff_norm:
-                norm_diff_std, norm_diff_mean = torch.std_mean(torch.stack(norm_diff_clients))
-                print(f"[Norm diff mean: {norm_diff_mean: .5f}, norm diff std: {norm_diff_std: .5f}]")
-                norm_diff_rep_std, norm_diff_rep_mean = torch.std_mean(torch.stack(norm_diff_rep_clients))
-                print(f"[Norm diff for rep mean: {norm_diff_rep_mean: .5f}, norm diff for rep std: {norm_diff_rep_std: .5f}]")
-            else:
-                norm_diff_std, norm_diff_mean, norm_diff_rep_std, norm_diff_rep_mean = torch.zeros([]), torch.zeros([]), torch.zeros([]), torch.zeros([])
 
             # 2. Rescale the diffs
             rescale_clients = [1 if norm_diff_client<clip_threshold else clip_threshold/norm_diff_client
@@ -382,15 +380,14 @@ def server_update_with_clip(sd: OrderedDict, sds_global_diff: List[OrderedDict],
             for key in representation_keys:
                 sds_global_diff_key = torch.stack([sd_global_diff[key] for sd_global_diff in sds_global_diff])
                 total_numel += torch.numel(sds_global_diff_key)
-                signal = signal + torch.sum(torch.abs(sds_global_diff_key))
+                # signal = signal + torch.sum(torch.abs(sds_global_diff_key))
+                signal = signal + torch.sum(sds_global_diff_key)
 
             signal_per_dim = signal / total_numel
 
             snr = signal_per_dim / noise_level * n_clients
 
-            signal_per_dim = signal / total_numel
-
-            snr = signal_per_dim / noise_level * n_clients
+    print(snr, norm_diff_mean, norm_diff_std, norm_diff_rep_mean, norm_diff_rep_std)
     return sd, snr.numpy(), norm_diff_mean[None].numpy(), norm_diff_std[None].numpy(), norm_diff_rep_mean[None].numpy(), norm_diff_rep_std[None].numpy()
 
 class Results:
