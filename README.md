@@ -1,6 +1,8 @@
-# Torch-Privacy-Federated-Learning
+# CENTAUR-Privacy-Federated-Representation-Learning
 
-This repository contains the code for one of our coming papers.
+This repository contains the code for our paper
+
+Z. Shen, J. Ye, A. Kang, H. Hassani, R. Shokri, "[Share Your Representation Only: Guaranteed Improvement of the Privacy-Utility Tradeoff in Federated Learning](https://openreview.net/forum?id=oJpVVGXu9i)" _The Eleventh International Conference on Learning Representations (ICLR2023)_
 
 ---
 
@@ -10,12 +12,12 @@ To install the dependencies: `pip install -r requirements.txt`.
 
 ## Data
 
-The CIFAR10, CIFAR100 and MNIST datasets are downloaded automatically by the `torchvision` package.
+The CIFAR10, CIFAR100 and EMNIST datasets are downloaded automatically by the `torchvision` package.
 
 ## Usage
 
 We provide scripts that has been tested to produce the results stated in our paper.
-Please find them under the foler `script/user-level-DP`.
+Please find them under the foler `script/user-level-DP/camera-ready-ICLR2023`.
 
 In the following, we explain several important flags.
 
